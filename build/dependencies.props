@@ -2,6 +2,9 @@
   <PropertyGroup>
     <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
   </PropertyGroup>
+  <PropertyGroup>
+    <RoslynBinariesPath>c:\git\dotnet\roslyn\Binaries\Debug\Dlls\</RoslynBinariesPath>
+  </PropertyGroup>
   <PropertyGroup Label="Package Versions">
     <BenchmarkDotNetPackageVersion>0.10.13</BenchmarkDotNetPackageVersion>
     <InternalAspNetCoreSdkPackageVersion>3.0.0-alpha1-20181017.7</InternalAspNetCoreSdkPackageVersion>
