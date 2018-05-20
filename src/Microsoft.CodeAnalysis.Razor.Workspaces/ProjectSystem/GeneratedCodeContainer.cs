@@ -1,0 +1,120 @@
+﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System;
+using Microsoft.CodeAnalysis.Text;
+using Microsoft.CodeAnalysis.Experiment;
+using Microsoft.AspNetCore.Razor.Language;
+using System.Collections.Immutable;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Collections.Generic;
+
+namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
+{
+    internal class GeneratedCodeContainer : IDocumentServiceFactory, ISpanMapper
+    {
+        private readonly TextContainer _textContainer;
+
+        public GeneratedCodeContainer()
+        {
+            _textContainer = new TextContainer();
+        }
+
+        public SourceText Source { get; private set; }
+
+        public VersionStamp SourceVersion { get; private set; }
+
+        public RazorCSharpDocument Output { get; private set; }
+
+        public SourceTextContainer SourceTextContainer => _textContainer;
+
+        public TService GetService<TService>()
+        {
+            if (this is TService service)
+            {
+                return service;
+            }
+
+            return default(TService);
+        }
+
+        public void SetOutput(SourceText source, RazorCodeDocument codeDocument)
+        {
+            Source = source;
+            Output = codeDocument.GetCSharpDocument();
+
+            _textContainer.SetText(SourceText.From(Output.GeneratedCode));
+        }
+
+        public Task<ImmutableArray<SpanMapResult>> MapSpansAsync(
+                Document document,
+                IEnumerable<TextSpan> spans,
+                CancellationToken cancellationToken)
+        {
+            if (Output == null)
+            {
+                return Task.FromResult(ImmutableArray<SpanMapResult>.Empty);
+            }
+
+            var results = ImmutableArray.CreateBuilder<SpanMapResult>();
+            foreach (var span in spans)
+            {
+                for (var i = 0; i < Output.SourceMappings.Count; i++)
+                {
+                    var original = Output.SourceMappings[i].OriginalSpan.AsTextSpan();
+                    var generated = Output.SourceMappings[i].GeneratedSpan.AsTextSpan();
+
+                    var leftOffset = span.Start - generated.Start;
+                    var rightOffset = span.End - generated.End;
+                    if (leftOffset >= 0 && rightOffset <= 0)
+                    {
+                        // This span mapping contains the span.
+                        var adjusted = new TextSpan(original.Start + leftOffset, (original.End + rightOffset) - (original.Start + leftOffset));
+                        results.Add(new SpanMapResult(document, Source.Lines.GetLinePositionSpan(adjusted)));
+                        break;
+                    }
+                }
+            }
+
+            return Task.FromResult(results.ToImmutable());
+        }
+
+        private class TextContainer : SourceTextContainer
+        {
+            public override event EventHandler<TextChangeEventArgs> TextChanged;
+
+            private SourceText _currentText;
+
+            public TextContainer()
+                : this(SourceText.From(string.Empty))
+            {
+            }
+
+            public TextContainer(SourceText sourceText)
+            {
+                if (sourceText == null)
+                {
+                    throw new ArgumentNullException(nameof(sourceText));
+                }
+
+                _currentText = sourceText;
+            }
+
+            public override SourceText CurrentText => _currentText;
+
+            public void SetText(SourceText sourceText)
+            {
+                if (sourceText == null)
+                {
+                    throw new ArgumentNullException(nameof(sourceText));
+                }
+
+                var e = new TextChangeEventArgs(_currentText, sourceText);
+                _currentText = sourceText;
+
+                TextChanged?.Invoke(this, e);
+            }
+        }
+    }
+}

@@ -3,44 +3,59 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Composition;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Razor.Language;
+using Microsoft.CodeAnalysis.Experiment;
 using Microsoft.CodeAnalysis.Razor.ProjectSystem;
+using Microsoft.CodeAnalysis.Text;
+using Microsoft.VisualStudio.LanguageServices;
+using Microsoft.VisualStudio.LanguageServices.ProjectSystem;
 
 namespace Microsoft.CodeAnalysis.Razor
 {
     // Deliberately not exported for now, until this feature is working end to end.
-    // [Export(typeof(ProjectSnapshotChangeTrigger))]
+    [Export(typeof(ProjectSnapshotChangeTrigger))]
     internal class BackgroundDocumentGenerator : ProjectSnapshotChangeTrigger
     {
-        private ForegroundDispatcher _foregroundDispatcher;
+        private readonly ForegroundDispatcher _foregroundDispatcher;
+        private readonly IWorkspaceProjectContextFactory _workspaceProjectContextFactory;
         private ProjectSnapshotManagerBase _projectManager;
 
-        private readonly Dictionary<DocumentKey, DocumentSnapshot> _files;
+        private readonly Dictionary<DocumentKey, DocumentSnapshot> _work;
         private Timer _timer;
 
         [ImportingConstructor]
-        public BackgroundDocumentGenerator(ForegroundDispatcher foregroundDispatcher)
+        public BackgroundDocumentGenerator(
+            ForegroundDispatcher foregroundDispatcher,
+            IWorkspaceProjectContextFactory workspaceProjectContextFactory)
         {
             if (foregroundDispatcher == null)
             {
                 throw new ArgumentNullException(nameof(foregroundDispatcher));
             }
 
-            _foregroundDispatcher = foregroundDispatcher;
+            if (workspaceProjectContextFactory == null)
+            {
+                throw new ArgumentNullException(nameof(workspaceProjectContextFactory));
+            }
 
-            _files = new Dictionary<DocumentKey, DocumentSnapshot>();
+            _foregroundDispatcher = foregroundDispatcher;
+            _workspaceProjectContextFactory = workspaceProjectContextFactory;
+            _work = new Dictionary<DocumentKey, DocumentSnapshot>();
         }
 
         public bool HasPendingNotifications
         {
             get
             {
-                lock (_files)
+                lock (_work)
                 {
-                    return _files.Count > 0;
+                    return _work.Count > 0;
                 }
             }
         }
@@ -134,11 +149,11 @@ namespace Microsoft.CodeAnalysis.Razor
 
             _foregroundDispatcher.AssertForegroundThread();
 
-            lock (_files)
+            lock (_work)
             {
                 // We only want to store the last 'seen' version of any given document. That way when we pick one to process
                 // it's always the best version to use.
-                _files[new DocumentKey(project.FilePath, document.FilePath)] = document;
+                _work[new DocumentKey(project.FilePath, document.FilePath)] = document;
 
                 StartWorker();
             }
@@ -165,18 +180,18 @@ namespace Microsoft.CodeAnalysis.Razor
 
                 OnStartingBackgroundWork();
 
-                DocumentSnapshot[] work;
-                lock (_files)
+                KeyValuePair<DocumentKey, DocumentSnapshot>[] work;
+                lock (_work)
                 {
-                    work = _files.Values.ToArray();
-                    _files.Clear();
+                    work = _work.ToArray();
+                    _work.Clear();
                 }
 
                 OnBackgroundCapturedWorkload();
 
                 for (var i = 0; i < work.Length; i++)
                 {
-                    var document = work[i];
+                    var document = work[i].Value;
                     try
                     {
                         await ProcessDocument(document);
@@ -189,14 +204,20 @@ namespace Microsoft.CodeAnalysis.Razor
 
                 OnCompletingBackgroundWork();
 
-                lock (_files)
+                await Task.Factory.StartNew(
+                    () => ReportUpdates(work),
+                    CancellationToken.None,
+                    TaskCreationOptions.None,
+                    _foregroundDispatcher.ForegroundScheduler);
+
+                lock (_work)
                 {
                     // Resetting the timer allows another batch of work to start.
                     _timer.Dispose();
                     _timer = null;
 
                     // If more work came in while we were running start the worker again.
-                    if (_files.Count > 0)
+                    if (_work.Count > 0)
                     {
                         StartWorker();
                     }
@@ -215,6 +236,22 @@ namespace Microsoft.CodeAnalysis.Razor
             }
         }
 
+        private void ReportUpdates(KeyValuePair<DocumentKey, DocumentSnapshot>[] work)
+        {
+            for (var i = 0; i < work.Length; i++)
+            {
+                var key = work[i].Key;
+                var document = work[i].Value;
+
+                if (document.TryGetText(out var source) &&
+                    document.TryGetGeneratedOutput(out var output))
+                {
+                    var container = ((DefaultDocumentSnapshot)document).State.GeneratedCodeContainer;
+                    container.SetOutput(source, output);
+                }
+            }
+        }
+
         private void ReportError(DocumentSnapshot document, Exception ex)
         {
             GC.KeepAlive(Task.Factory.StartNew(
@@ -229,22 +266,34 @@ namespace Microsoft.CodeAnalysis.Razor
             switch (e.Kind)
             {
                 case ProjectChangeKind.ProjectAdded:
+                    {
+                        var projectSnapshot = _projectManager.GetLoadedProject(e.ProjectFilePath);
+                        foreach (var documentFilePath in projectSnapshot.DocumentFilePaths)
+                        {
+                            Enqueue(projectSnapshot, projectSnapshot.GetDocument(documentFilePath));
+                        }
+
+                        break;
+                    }
                 case ProjectChangeKind.ProjectChanged:
                     {
-                        var project = _projectManager.GetLoadedProject(e.ProjectFilePath);
-                        foreach (var documentFilePath in project.DocumentFilePaths)
+                        var projectSnapshot = _projectManager.GetLoadedProject(e.ProjectFilePath);
+                        foreach (var documentFilePath in projectSnapshot.DocumentFilePaths)
                         {
-                            Enqueue(project, project.GetDocument(documentFilePath));
+                            Enqueue(projectSnapshot, projectSnapshot.GetDocument(documentFilePath));
                         }
 
                         break;
                     }
 
-                case ProjectChangeKind.ProjectRemoved:
-                    // ignore
-                    break;
-
                 case ProjectChangeKind.DocumentAdded:
+                    {
+                        var project = _projectManager.GetLoadedProject(e.ProjectFilePath);
+                        Enqueue(project, project.GetDocument(e.DocumentFilePath));
+
+                        break;
+                    }
+
                 case ProjectChangeKind.DocumentChanged:
                     {
                         var project = _projectManager.GetLoadedProject(e.ProjectFilePath);
@@ -253,10 +302,12 @@ namespace Microsoft.CodeAnalysis.Razor
                         break;
                     }
 
-                
+                case ProjectChangeKind.ProjectRemoved:
                 case ProjectChangeKind.DocumentRemoved:
-                    // ignore
-                    break;
+                    {
+                        // ignore
+                        break;
+                    }
 
                 default:
                     throw new InvalidOperationException($"Unknown ProjectChangeKind {e.Kind}");

@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Microsoft.AspNetCore.Razor.Language;
 using Microsoft.VisualStudio.LanguageServices;
+using Microsoft.VisualStudio.LanguageServices.ProjectSystem;
 using Microsoft.VisualStudio.ProjectSystem;
 using Microsoft.VisualStudio.ProjectSystem.Properties;
 using Item = System.Collections.Generic.KeyValuePair<string, System.Collections.Immutable.IImmutableDictionary<string, string>>;
@@ -31,8 +32,9 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
         [ImportingConstructor]
         public DefaultRazorProjectHost(
             IUnconfiguredProjectCommonServices commonServices,
-            [Import(typeof(VisualStudioWorkspace))] Workspace workspace)
-            : base(commonServices, workspace)
+            [Import(typeof(VisualStudioWorkspace))] Workspace workspace,
+            Lazy<IWorkspaceProjectContextFactory> projectContextFactory)
+            : base(commonServices, workspace, projectContextFactory)
         {
         }
 
@@ -68,6 +70,9 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
                     Rules.RazorConfiguration.SchemaName,
                     Rules.RazorExtension.SchemaName,
                     Rules.RazorGenerateWithTargetPath.SchemaName,
+                    ManagedProjectSystemSchema.CompilerCommandLineArgs.SchemaName,
+                    ManagedProjectSystemSchema.ConfigurationGeneral.SchemaName,
+                    ManagedProjectSystemSchema.ResolvedCompilationReference.SchemaName,
                 });
         }
 
@@ -107,9 +112,14 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
                         var documents = GetCurrentDocuments(update.Value);
                         var changedDocuments = GetChangedAndRemovedDocuments(update.Value);
 
+                        var references = GetReferences(update.Value);
+                        TryGetCommandLineOptions(update.Value.CurrentState, out var commandLineOptions);
+
                         await UpdateAsync(() =>
                         {
                             UpdateProjectUnsafe(hostProject);
+                            UpdateWorkspaceProjectOptionsUnsafe(commandLineOptions);
+                            UpdateWorkspaceProjectReferencesUnsafe(references);
 
                             for (var i = 0; i < changedDocuments.Length; i++)
                             {
@@ -302,6 +312,70 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             return true;
         }
 
+        internal static bool TryGetReferences(
+            IImmutableDictionary<string, IProjectRuleSnapshot> state,
+            out string[] references)
+        {
+            if (!state.TryGetValue(ManagedProjectSystemSchema.ResolvedCompilationReference.ItemName, out var rule))
+            {
+                references = null;
+                return false;
+            }
+
+            var items = rule.Items;
+            var referencesList = new List<string>();
+            foreach (var item in items)
+            {
+                var reference = item.Key;
+                if (!referencesList.Contains(reference, FilePathComparer.Instance))
+                {
+                    referencesList.Add(reference);
+                }
+            }
+
+            references = referencesList.ToArray();
+            return true;
+        }
+
+        internal static bool TryGetCommandLineOptions(
+            IImmutableDictionary<string, IProjectRuleSnapshot> state,
+            out string commandLineOptions)
+        {
+            if (!state.TryGetValue(ManagedProjectSystemSchema.CompilerCommandLineArgs.ItemName, out var rule))
+            {
+                commandLineOptions = null;
+                return false;
+            }
+
+            commandLineOptions = string.Join(" ", rule.Items.Select(kvp => kvp.Key));
+            return true;
+        }
+
+        internal static bool TryGetTargetPath(
+            IImmutableDictionary<string, IProjectRuleSnapshot> state,
+            out string targetPath)
+        {
+            if (!state.TryGetValue(ManagedProjectSystemSchema.ConfigurationGeneral.SchemaName, out var rule))
+            {
+                targetPath = null;
+                return false;
+            }
+
+            if (!rule.Properties.TryGetValue(ManagedProjectSystemSchema.ConfigurationGeneral.TargetPathPropertyName, out targetPath))
+            {
+                targetPath = null;
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(targetPath))
+            {
+                targetPath = null;
+                return false;
+            }
+
+            return true;
+        }
+        
         private HostDocument[] GetCurrentDocuments(IProjectSubscriptionUpdate update)
         {
             if (!update.CurrentState.TryGetValue(Rules.RazorGenerateWithTargetPath.SchemaName, out var rule))
@@ -347,6 +421,21 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             }
 
             return documents.ToArray();
+        }
+
+        private string[] GetReferences(IProjectSubscriptionUpdate update)
+        {
+            if (!TryGetReferences(update.CurrentState, out var references))
+            {
+                return Array.Empty<string>();
+            }
+
+            if (TryGetTargetPath(update.CurrentState, out var targetPath))
+            {
+                references = references.Concat(new[] { targetPath, }).ToArray();
+            }
+
+            return references;
         }
     }
 }

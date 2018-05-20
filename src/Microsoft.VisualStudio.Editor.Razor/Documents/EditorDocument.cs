@@ -125,7 +125,7 @@ namespace Microsoft.VisualStudio.Editor.Razor.Documents
             EditorTextContainer.TextChanged -= TextContainer_Changed;
             EditorTextContainer = null;
             EditorTextBuffer = null;
-            
+
             _fileTracker.StartListening();
         }
 

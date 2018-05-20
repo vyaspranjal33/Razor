@@ -64,6 +64,8 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
 
         private async Task<RazorCodeDocument> GetGeneratedOutputInitializationTaskCore(ProjectSnapshot project, DocumentSnapshot document)
         {
+            var sourceText = await document.GetTextAsync().ConfigureAwait(false);
+
             var tagHelpers = await project.GetTagHelpersAsync().ConfigureAwait(false);
             var imports = await GetImportsAsync(project, document);
 
