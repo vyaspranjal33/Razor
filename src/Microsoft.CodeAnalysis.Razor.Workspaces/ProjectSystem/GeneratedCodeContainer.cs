@@ -60,24 +60,36 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             var results = ImmutableArray.CreateBuilder<SpanMapResult>();
             foreach (var span in spans)
             {
-                for (var i = 0; i < Output.SourceMappings.Count; i++)
+                if (TryGetLinePositionSpan(span, out var linePositionSpan))
                 {
-                    var original = Output.SourceMappings[i].OriginalSpan.AsTextSpan();
-                    var generated = Output.SourceMappings[i].GeneratedSpan.AsTextSpan();
-
-                    var leftOffset = span.Start - generated.Start;
-                    var rightOffset = span.End - generated.End;
-                    if (leftOffset >= 0 && rightOffset <= 0)
-                    {
-                        // This span mapping contains the span.
-                        var adjusted = new TextSpan(original.Start + leftOffset, (original.End + rightOffset) - (original.Start + leftOffset));
-                        results.Add(new SpanMapResult(document, Source.Lines.GetLinePositionSpan(adjusted)));
-                        break;
-                    }
+                    results.Add(new SpanMapResult(document, linePositionSpan));
                 }
             }
 
             return Task.FromResult(results.ToImmutable());
+        }
+
+        // Internal for testing.
+        internal bool TryGetLinePositionSpan(TextSpan span, out LinePositionSpan linePositionSpan)
+        {
+            for (var i = 0; i < Output.SourceMappings.Count; i++)
+            {
+                var original = Output.SourceMappings[i].OriginalSpan.AsTextSpan();
+                var generated = Output.SourceMappings[i].GeneratedSpan.AsTextSpan();
+
+                var leftOffset = span.Start - generated.Start;
+                var rightOffset = span.End - generated.End;
+                if (leftOffset >= 0 && rightOffset <= 0)
+                {
+                    // This span mapping contains the span.
+                    var adjusted = new TextSpan(original.Start + leftOffset, (original.End + rightOffset) - (original.Start + leftOffset));
+                    linePositionSpan = Source.Lines.GetLinePositionSpan(adjusted);
+                    return true;
+                }
+            }
+
+            linePositionSpan = default;
+            return false;
         }
 
         private class TextContainer : SourceTextContainer

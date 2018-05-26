@@ -7,14 +7,18 @@ using System.Collections.Immutable;
 using System.ComponentModel.Composition;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Microsoft.AspNetCore.Razor.Language;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.LanguageServices;
 using Microsoft.VisualStudio.LanguageServices.ProjectSystem;
 using Microsoft.VisualStudio.ProjectSystem;
 using Microsoft.VisualStudio.ProjectSystem.Properties;
+using Microsoft.VisualStudio.TextManager.Interop;
 using Item = System.Collections.Generic.KeyValuePair<string, System.Collections.Immutable.IImmutableDictionary<string, string>>;
 
 namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
@@ -24,8 +28,9 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
     // This class is responsible for intializing the Razor ProjectSnapshotManager for cases where
     // MSBuild provides configuration support (>= 2.1).
     [AppliesTo("DotNetCoreRazor & DotNetCoreRazorConfiguration")]
+    [ExportVsProfferedProjectService(typeof(IVsContainedLanguageProjectNameProvider))]
     [Export(ExportContractNames.Scopes.UnconfiguredProject, typeof(IProjectDynamicLoadComponent))]
-    internal class DefaultRazorProjectHost : RazorProjectHostBase
+    internal class DefaultRazorProjectHost : RazorProjectHostBase, IVsContainedLanguageProjectNameProvider
     {
         private IDisposable _subscription;
 
@@ -436,6 +441,19 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             }
 
             return references;
+        }
+
+        public int GetProjectName([In] uint itemid, [MarshalAs(UnmanagedType.BStr)] out string pbstrProjectName)
+        {
+            if (Current == null)
+            {
+                pbstrProjectName = null;
+
+                return VSConstants.E_INVALIDARG;
+            }
+
+            pbstrProjectName = Path.GetFileNameWithoutExtension(Current.FilePath) + " (Razor)";
+            return VSConstants.S_OK;
         }
     }
 }
