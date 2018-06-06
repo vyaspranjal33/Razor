@@ -7,11 +7,14 @@ using System.ComponentModel.Composition;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.Composition;
 using Microsoft.VisualStudio.LanguageServices;
 using Microsoft.VisualStudio.LanguageServices.ProjectSystem;
 using Microsoft.VisualStudio.ProjectSystem;
+using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Threading;
 
 namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
@@ -191,12 +194,21 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             }
             else if (_current == null && project != null)
             {
+                var assembly = Assembly.Load("Microsoft.VisualStudio.ProjectSystem.Managed, Version=2.7.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35");
+                var type = assembly.GetType("Microsoft.VisualStudio.ProjectSystem.LanguageServices.IProjectHostProvider");
+
+                var exportProviderType = CommonServices.UnconfiguredProject.Services.ExportProvider.GetType();
+                var method = exportProviderType.GetMethod(nameof(ExportProvider.GetExportedValue), Array.Empty<Type>()).MakeGenericMethod(type);
+                var export = method.Invoke(CommonServices.UnconfiguredProject.Services.ExportProvider, Array.Empty<object>());
+                var host = new IProjectHostProvider(export);
+
+                var displayName = Path.GetFileNameWithoutExtension(CommonServices.UnconfiguredProject.FullPath) + " (Razor)";
                 _projectContext = GetProjectContextFactory().CreateProjectContext(
                     LanguageNames.CSharp,
-                    Path.GetFileNameWithoutExtension(CommonServices.UnconfiguredProject.FullPath) + " (Razor)",
+                    displayName,
                     CommonServices.UnconfiguredProject.FullPath,
                     Guid.NewGuid(),
-                    null,
+                    host.UnconfiguredProjectHostObject.ActiveIntellisenseProjectHostObject,
                     null,
                     null);
 
@@ -335,6 +347,43 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
         {
             var split = document.TargetPath.Split('/');
             return split.Take(split.Length - 1);
+        }
+
+        private class IUnconfiguredProjectHostObject
+        {
+            private readonly object _inner;
+
+            public IUnconfiguredProjectHostObject(object inner)
+            {
+                _inner = inner;
+            }
+
+            public object ActiveIntellisenseProjectHostObject
+            {
+                get
+                {
+                    return  _inner.GetType().GetProperty(nameof(ActiveIntellisenseProjectHostObject)).GetValue(_inner);
+                }
+            }
+        }
+        
+        private class IProjectHostProvider
+        {
+            private readonly object _inner;
+
+            public IProjectHostProvider(object inner)
+            {
+                _inner = inner;
+            }
+
+            public IUnconfiguredProjectHostObject UnconfiguredProjectHostObject
+            {
+                get
+                {
+                    var inner = _inner.GetType().GetProperty(nameof(UnconfiguredProjectHostObject)).GetValue(_inner);
+                    return new IUnconfiguredProjectHostObject(inner);
+                }
+            }
         }
     }
 }
