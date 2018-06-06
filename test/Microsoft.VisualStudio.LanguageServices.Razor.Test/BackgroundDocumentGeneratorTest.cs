@@ -2,13 +2,12 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Moq;
+using Microsoft.CodeAnalysis.Razor.ProjectSystem;
 using Xunit;
 
-namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
+namespace Microsoft.CodeAnalysis.Razor
 {
     // These tests are really integration tests. There isn't a good way to unit test this functionality since
     // the only thing in here is threading.
