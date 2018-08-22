@@ -11,6 +11,72 @@ namespace Microsoft.AspNetCore.Razor.Language.Test.Legacy
 {
     public class CSharpCodeParserTest
     {
+        [Fact]
+        public void TestCodeParser()
+        {
+//            var content = @"
+//@{ \r\n  // asdf \r\n x = y;  }
+//";
+            var content = @"
+@custom Foo
+@{
+using
+}
+@case: foo
+@(foo.bar  @(dfdf
+@{ 
+// asdf 
+ x = y;  
+var x = ;
+}
+";
+            var source = TestRazorSourceDocument.Create(content: content);
+            //var options = RazorParserOptions.Create(builder =>
+            //{
+            //    var directive = DirectiveDescriptor.CreateDirective(
+            //        "custom",
+            //        DirectiveKind.SingleLine,
+            //        b =>
+            //        {
+            //            b.AddTypeToken("some", "type");
+            //            b.Usage = DirectiveUsage.FileScopedSinglyOccurring;
+            //            b.Description = "custom directive";
+            //        });
+            //    builder.ParseLeadingDirectives = false;
+            //    builder.Directives.Add(directive);
+            //});
+            var directive = DirectiveDescriptor.CreateDirective(
+                "custom",
+                DirectiveKind.SingleLine,
+                b =>
+                {
+                    b.AddTypeToken("some", "type");
+                    b.Usage = DirectiveUsage.FileScopedSinglyOccurring;
+                    b.Description = "custom directive";
+                });
+            var options = RazorParserOptions.CreateDefault();
+            var context = new ParserContext(source, options);
+            var result = string.Empty;
+            // while (!System.Diagnostics.Debugger.IsAttached)
+            // {
+            //     System.Threading.Thread.Sleep(10);
+            // }
+            // System.Diagnostics.Debugger.Break();
+
+            var parser = new CSharpCodeParser(new[] { directive }, context)
+            {
+                HtmlParser = new HtmlMarkupParser(context)
+            };
+
+            //var node = parser.Parse().CreateRed();
+            //result = SyntaxNodeSerializer.Serialize(node);
+            parser.ParseBlock();
+            var node = context.Builder.Build();
+            result = SyntaxTreeNodeSerializer.Serialize(node);
+            Console.WriteLine(result);
+            Assert.Equal(string.Empty, result);
+        }
+
         public static TheoryData InvalidTagHelperPrefixData
         {
             get

@@ -363,6 +363,282 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
   }
 
+  internal sealed partial class CSharpLiteralSyntax : CSharpSyntaxNode
+  {
+    private SyntaxNode _cSharpTokens;
+
+    internal CSharpLiteralSyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public SyntaxList<SyntaxToken> CSharpTokens 
+    {
+        get
+        {
+            return new SyntaxList<SyntaxToken>(GetRed(ref _cSharpTokens, 0));
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _cSharpTokens);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _cSharpTokens;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitCSharpLiteral(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitCSharpLiteral(this);
+    }
+
+    public CSharpLiteralSyntax Update(SyntaxList<SyntaxToken> cSharpTokens)
+    {
+        if (cSharpTokens != CSharpTokens)
+        {
+            var newNode = SyntaxFactory.CSharpLiteral(cSharpTokens);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public CSharpLiteralSyntax WithCSharpTokens(SyntaxList<SyntaxToken> cSharpTokens)
+    {
+        return Update(cSharpTokens);
+    }
+
+    public CSharpLiteralSyntax AddCSharpTokens(params SyntaxToken[] items)
+    {
+        return WithCSharpTokens(this.CSharpTokens.AddRange(items));
+    }
+  }
+
+  internal sealed partial class CSharpStatementLiteralSyntax : CSharpSyntaxNode
+  {
+    private SyntaxNode _cSharpTokens;
+
+    internal CSharpStatementLiteralSyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public SyntaxList<SyntaxToken> CSharpTokens 
+    {
+        get
+        {
+            return new SyntaxList<SyntaxToken>(GetRed(ref _cSharpTokens, 0));
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _cSharpTokens);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _cSharpTokens;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitCSharpStatementLiteral(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitCSharpStatementLiteral(this);
+    }
+
+    public CSharpStatementLiteralSyntax Update(SyntaxList<SyntaxToken> cSharpTokens)
+    {
+        if (cSharpTokens != CSharpTokens)
+        {
+            var newNode = SyntaxFactory.CSharpStatementLiteral(cSharpTokens);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public CSharpStatementLiteralSyntax WithCSharpTokens(SyntaxList<SyntaxToken> cSharpTokens)
+    {
+        return Update(cSharpTokens);
+    }
+
+    public CSharpStatementLiteralSyntax AddCSharpTokens(params SyntaxToken[] items)
+    {
+        return WithCSharpTokens(this.CSharpTokens.AddRange(items));
+    }
+  }
+
+  internal sealed partial class CSharpExpressionLiteralSyntax : CSharpSyntaxNode
+  {
+    private SyntaxNode _cSharpTokens;
+
+    internal CSharpExpressionLiteralSyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public SyntaxList<SyntaxToken> CSharpTokens 
+    {
+        get
+        {
+            return new SyntaxList<SyntaxToken>(GetRed(ref _cSharpTokens, 0));
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _cSharpTokens);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _cSharpTokens;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitCSharpExpressionLiteral(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitCSharpExpressionLiteral(this);
+    }
+
+    public CSharpExpressionLiteralSyntax Update(SyntaxList<SyntaxToken> cSharpTokens)
+    {
+        if (cSharpTokens != CSharpTokens)
+        {
+            var newNode = SyntaxFactory.CSharpExpressionLiteral(cSharpTokens);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public CSharpExpressionLiteralSyntax WithCSharpTokens(SyntaxList<SyntaxToken> cSharpTokens)
+    {
+        return Update(cSharpTokens);
+    }
+
+    public CSharpExpressionLiteralSyntax AddCSharpTokens(params SyntaxToken[] items)
+    {
+        return WithCSharpTokens(this.CSharpTokens.AddRange(items));
+    }
+  }
+
+  internal sealed partial class CSharpDirectiveLiteralSyntax : CSharpSyntaxNode
+  {
+    private SyntaxNode _cSharpTokens;
+
+    internal CSharpDirectiveLiteralSyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public SyntaxList<SyntaxToken> CSharpTokens 
+    {
+        get
+        {
+            return new SyntaxList<SyntaxToken>(GetRed(ref _cSharpTokens, 0));
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _cSharpTokens);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _cSharpTokens;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitCSharpDirectiveLiteral(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitCSharpDirectiveLiteral(this);
+    }
+
+    public CSharpDirectiveLiteralSyntax Update(SyntaxList<SyntaxToken> cSharpTokens)
+    {
+        if (cSharpTokens != CSharpTokens)
+        {
+            var newNode = SyntaxFactory.CSharpDirectiveLiteral(cSharpTokens);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public CSharpDirectiveLiteralSyntax WithCSharpTokens(SyntaxList<SyntaxToken> cSharpTokens)
+    {
+        return Update(cSharpTokens);
+    }
+
+    public CSharpDirectiveLiteralSyntax AddCSharpTokens(params SyntaxToken[] items)
+    {
+        return WithCSharpTokens(this.CSharpTokens.AddRange(items));
+    }
+  }
+
   internal sealed partial class CSharpCodeLiteralSyntax : CSharpSyntaxNode
   {
     private SyntaxNode _cSharpTokens;
@@ -496,6 +772,75 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
 
     public CSharpCodeBlockSyntax AddChildren(params RazorSyntaxNode[] items)
+    {
+        return WithChildren(this.Children.AddRange(items));
+    }
+  }
+
+  internal sealed partial class CSharpTemplateBlockSyntax : CSharpSyntaxNode
+  {
+    private SyntaxNode _children;
+
+    internal CSharpTemplateBlockSyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public SyntaxList<RazorSyntaxNode> Children 
+    {
+        get
+        {
+            return new SyntaxList<RazorSyntaxNode>(GetRed(ref _children, 0));
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _children);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _children;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitCSharpTemplateBlock(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitCSharpTemplateBlock(this);
+    }
+
+    public CSharpTemplateBlockSyntax Update(SyntaxList<RazorSyntaxNode> children)
+    {
+        if (children != Children)
+        {
+            var newNode = SyntaxFactory.CSharpTemplateBlock(children);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public CSharpTemplateBlockSyntax WithChildren(SyntaxList<RazorSyntaxNode> children)
+    {
+        return Update(children);
+    }
+
+    public CSharpTemplateBlockSyntax AddChildren(params RazorSyntaxNode[] items)
     {
         return WithChildren(this.Children.AddRange(items));
     }
@@ -889,8 +1234,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public CSharpExpressionBodySyntax AddOpenParenMetaCode(params SyntaxToken[] items)
     {
-        var _openParen = this.OpenParen ?? SyntaxFactory.CSharpMetaCode();
-        return this.WithOpenParen(_openParen.WithMetaCode(_openParen.MetaCode.AddRange(items)));
+        return this.WithOpenParen(this.OpenParen.WithMetaCode(this.OpenParen.MetaCode.AddRange(items)));
     }
 
     public CSharpExpressionBodySyntax AddCSharpCodeChildren(params RazorSyntaxNode[] items)
@@ -900,8 +1244,158 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public CSharpExpressionBodySyntax AddCloseParenMetaCode(params SyntaxToken[] items)
     {
-        var _closeParen = this.CloseParen ?? SyntaxFactory.CSharpMetaCode();
-        return this.WithCloseParen(_closeParen.WithMetaCode(_closeParen.MetaCode.AddRange(items)));
+        return this.WithCloseParen(this.CloseParen.WithMetaCode(this.CloseParen.MetaCode.AddRange(items)));
+    }
+  }
+
+  internal sealed partial class CSharpImplicitExpression : CSharpBlockSyntax
+  {
+    private CSharpTransitionSyntax _transition;
+    private CSharpSyntaxNode _body;
+
+    internal CSharpImplicitExpression(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public override CSharpTransitionSyntax Transition 
+    {
+        get
+        {
+            return GetRedAtZero(ref _transition);
+        }
+    }
+
+    public override CSharpSyntaxNode Body 
+    {
+        get
+        {
+            return GetRed(ref _body, 1);
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _transition);
+            case 1: return GetRed(ref _body, 1);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _transition;
+            case 1: return _body;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitCSharpImplicitExpression(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitCSharpImplicitExpression(this);
+    }
+
+    public CSharpImplicitExpression Update(CSharpTransitionSyntax transition, CSharpSyntaxNode body)
+    {
+        if (transition != Transition || body != Body)
+        {
+            var newNode = SyntaxFactory.CSharpImplicitExpression(transition, body);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    internal override CSharpBlockSyntax WithTransitionCore(CSharpTransitionSyntax transition) => WithTransition(transition);
+    public new CSharpImplicitExpression WithTransition(CSharpTransitionSyntax transition)
+    {
+        return Update(transition, _body);
+    }
+
+    internal override CSharpBlockSyntax WithBodyCore(CSharpSyntaxNode body) => WithBody(body);
+    public new CSharpImplicitExpression WithBody(CSharpSyntaxNode body)
+    {
+        return Update(_transition, body);
+    }
+  }
+
+  internal sealed partial class CSharpImplicitExpressionBodySyntax : CSharpSyntaxNode
+  {
+    private CSharpCodeBlockSyntax _cSharpCode;
+
+    internal CSharpImplicitExpressionBodySyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public CSharpCodeBlockSyntax CSharpCode 
+    {
+        get
+        {
+            return GetRedAtZero(ref _cSharpCode);
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _cSharpCode);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _cSharpCode;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitCSharpImplicitExpressionBody(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitCSharpImplicitExpressionBody(this);
+    }
+
+    public CSharpImplicitExpressionBodySyntax Update(CSharpCodeBlockSyntax cSharpCode)
+    {
+        if (cSharpCode != CSharpCode)
+        {
+            var newNode = SyntaxFactory.CSharpImplicitExpressionBody(cSharpCode);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public CSharpImplicitExpressionBodySyntax WithCSharpCode(CSharpCodeBlockSyntax cSharpCode)
+    {
+        return Update(cSharpCode);
+    }
+
+    public CSharpImplicitExpressionBodySyntax AddCSharpCodeChildren(params RazorSyntaxNode[] items)
+    {
+        return this.WithCSharpCode(this.CSharpCode.WithChildren(this.CSharpCode.Children.AddRange(items)));
     }
   }
 
@@ -989,7 +1483,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
   internal sealed partial class CSharpDirectiveBodySyntax : CSharpSyntaxNode
   {
-    private CSharpMetaCodeSyntax _keyword;
+    private CSharpSyntaxNode _keyword;
     private CSharpCodeBlockSyntax _cSharpCode;
 
     internal CSharpDirectiveBodySyntax(GreenNode green, SyntaxNode parent, int position)
@@ -997,7 +1491,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     {
     }
 
-    public CSharpMetaCodeSyntax Keyword 
+    public CSharpSyntaxNode Keyword 
     {
         get
         {
@@ -1042,7 +1536,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         visitor.VisitCSharpDirectiveBody(this);
     }
 
-    public CSharpDirectiveBodySyntax Update(CSharpMetaCodeSyntax keyword, CSharpCodeBlockSyntax cSharpCode)
+    public CSharpDirectiveBodySyntax Update(CSharpSyntaxNode keyword, CSharpCodeBlockSyntax cSharpCode)
     {
         if (keyword != Keyword || cSharpCode != CSharpCode)
         {
@@ -1056,7 +1550,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         return this;
     }
 
-    public CSharpDirectiveBodySyntax WithKeyword(CSharpMetaCodeSyntax keyword)
+    public CSharpDirectiveBodySyntax WithKeyword(CSharpSyntaxNode keyword)
     {
         return Update(keyword, _cSharpCode);
     }
@@ -1066,14 +1560,10 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         return Update(_keyword, cSharpCode);
     }
 
-    public CSharpDirectiveBodySyntax AddKeywordMetaCode(params SyntaxToken[] items)
-    {
-        return this.WithKeyword(this.Keyword.WithMetaCode(this.Keyword.MetaCode.AddRange(items)));
-    }
-
     public CSharpDirectiveBodySyntax AddCSharpCodeChildren(params RazorSyntaxNode[] items)
     {
-        return this.WithCSharpCode(this.CSharpCode.WithChildren(this.CSharpCode.Children.AddRange(items)));
+        var _cSharpCode = this.CSharpCode ?? SyntaxFactory.CSharpCodeBlock();
+        return this.WithCSharpCode(_cSharpCode.WithChildren(_cSharpCode.Children.AddRange(items)));
     }
   }
 }

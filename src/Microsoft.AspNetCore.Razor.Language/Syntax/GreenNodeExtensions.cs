@@ -19,7 +19,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
             return new InternalSyntax.SyntaxList<T>(node);
         }
 
-        public static TNode WithAnnotationsGreen<TNode>(this TNode node, IEnumerable<SyntaxAnnotation> annotations) where TNode : GreenNode
+        public static TNode WithAnnotationsGreen<TNode>(this TNode node, params SyntaxAnnotation[] annotations) where TNode : GreenNode
         {
             var newAnnotations = new List<SyntaxAnnotation>();
             foreach (var candidate in annotations)

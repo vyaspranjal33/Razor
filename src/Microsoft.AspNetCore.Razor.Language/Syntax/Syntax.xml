@@ -14,7 +14,7 @@
       <Kind Name="RazorCommentStar" />
     </Field>
     <Field Name="Comment" Type="SyntaxToken" Optional="true">
-      <Kind Name="RazorComment" />
+      <Kind Name="RazorCommentLiteral" />
     </Field>
     <Field Name="EndCommentStar" Type="SyntaxToken">
       <Kind Name="RazorCommentStar" />
@@ -43,12 +43,32 @@
     <Kind Name="CSharpMetaCode" />
     <Field Name="MetaCode" Type="SyntaxList&lt;SyntaxToken&gt;" />
   </Node>
+  <Node Name="CSharpLiteralSyntax" Base="CSharpSyntaxNode">
+    <Kind Name="CSharpLiteral" />
+    <Field Name="CSharpTokens" Type="SyntaxList&lt;SyntaxToken&gt;" />
+  </Node>
+  <Node Name="CSharpStatementLiteralSyntax" Base="CSharpSyntaxNode">
+    <Kind Name="CSharpStatementLiteral" />
+    <Field Name="CSharpTokens" Type="SyntaxList&lt;SyntaxToken&gt;" />
+  </Node>
+  <Node Name="CSharpExpressionLiteralSyntax" Base="CSharpSyntaxNode">
+    <Kind Name="CSharpExpressionLiteral" />
+    <Field Name="CSharpTokens" Type="SyntaxList&lt;SyntaxToken&gt;" />
+  </Node>
+  <Node Name="CSharpDirectiveLiteralSyntax" Base="CSharpSyntaxNode">
+    <Kind Name="CSharpDirectiveLiteral" />
+    <Field Name="CSharpTokens" Type="SyntaxList&lt;SyntaxToken&gt;" />
+  </Node>
   <Node Name="CSharpCodeLiteralSyntax" Base="CSharpSyntaxNode">
     <Kind Name="CSharpCodeLiteral" />
     <Field Name="CSharpTokens" Type="SyntaxList&lt;SyntaxToken&gt;" />
   </Node>
   <Node Name="CSharpCodeBlockSyntax" Base="CSharpSyntaxNode">
     <Kind Name="CSharpCodeBlock" />
+    <Field Name="Children" Type="SyntaxList&lt;RazorSyntaxNode&gt;" />
+  </Node>
+  <Node Name="CSharpTemplateBlockSyntax" Base="CSharpSyntaxNode">
+    <Kind Name="CSharpTemplateBlock" />
     <Field Name="Children" Type="SyntaxList&lt;RazorSyntaxNode&gt;" />
   </Node>
   <AbstractNode Name="CSharpBlockSyntax" Base="CSharpSyntaxNode">
@@ -81,9 +101,22 @@
   </Node>
   <Node Name="CSharpExpressionBodySyntax" Base="CSharpSyntaxNode">
     <Kind Name="CSharpExpressionBody" />
-    <Field Name="OpenParen" Type="CSharpMetaCodeSyntax" Optional="true" />
+    <Field Name="OpenParen" Type="CSharpMetaCodeSyntax" />
     <Field Name="CSharpCode" Type="CSharpCodeBlockSyntax" />
-    <Field Name="CloseParen" Type="CSharpMetaCodeSyntax" Optional="true" />
+    <Field Name="CloseParen" Type="CSharpMetaCodeSyntax" />
+  </Node>
+  <Node Name="CSharpImplicitExpression" Base="CSharpBlockSyntax">
+    <Kind Name="CSharpImplicitExpression" />
+    <Field Name="Transition" Type="CSharpTransitionSyntax" Override="true">
+      <Kind Name="CSharpTransition" />
+    </Field>
+    <Field Name="Body" Type="CSharpSyntaxNode" Override="true">
+      <Kind Name="CSharpImplicitExpressionBody" />
+    </Field>
+  </Node>
+  <Node Name="CSharpImplicitExpressionBodySyntax" Base="CSharpSyntaxNode">
+    <Kind Name="CSharpImplicitExpressionBody" />
+    <Field Name="CSharpCode" Type="CSharpCodeBlockSyntax" />
   </Node>
   <Node Name="CSharpDirectiveSyntax" Base="CSharpBlockSyntax">
     <Kind Name="CSharpDirective" />
@@ -96,7 +129,7 @@
   </Node>
   <Node Name="CSharpDirectiveBodySyntax" Base="CSharpSyntaxNode">
     <Kind Name="CSharpDirectiveBody" />
-    <Field Name="Keyword" Type="CSharpMetaCodeSyntax" />
-    <Field Name="CSharpCode" Type="CSharpCodeBlockSyntax" />
+    <Field Name="Keyword" Type="CSharpSyntaxNode" />
+    <Field Name="CSharpCode" Type="CSharpCodeBlockSyntax" Optional="true" />
   </Node>
 </Tree>
