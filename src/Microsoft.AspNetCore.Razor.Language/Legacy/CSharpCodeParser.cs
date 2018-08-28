@@ -197,7 +197,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                           (includeComments && token.Kind == SyntaxKind.CSharpComment);
         }
 
-        public override void ParseBlock()
+        public override void ParseBlock1()
         {
             using (PushSpanConfig(DefaultSpanConfig))
             {
@@ -679,7 +679,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
         private void OtherParserBlock()
         {
-            ParseWithOtherParser(p => p.ParseBlock());
+            ParseWithOtherParser(p => p.ParseBlock1());
         }
 
         private void SectionBlock(string left, string right, bool caseSensitive)
@@ -695,7 +695,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             IsNested = true;
             using (PushSpanConfig())
             {
-                ParseBlock();
+                ParseBlock1();
             }
 
             Span.Start = CurrentLocation;

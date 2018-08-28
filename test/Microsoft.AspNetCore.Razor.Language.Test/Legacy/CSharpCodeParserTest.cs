@@ -70,7 +70,7 @@ var x = ;
 
             //var node = parser.Parse().CreateRed();
             //result = SyntaxNodeSerializer.Serialize(node);
-            parser.ParseBlock();
+            parser.ParseBlock1();
             var node = context.Builder.Build();
             result = SyntaxTreeNodeSerializer.Serialize(node);
             Console.WriteLine(result);

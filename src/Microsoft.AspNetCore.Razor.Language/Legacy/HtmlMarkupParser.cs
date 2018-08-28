@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax;
 
 namespace Microsoft.AspNetCore.Razor.Language.Legacy
 {
-    internal class HtmlMarkupParser : TokenizerBackedParser<HtmlTokenizer>
+    internal partial class HtmlMarkupParser : TokenizerBackedParser<HtmlTokenizer>
     {
         private const string ScriptTagName = "script";
 
@@ -54,7 +54,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
         {
         }
 
-        public ParserBase CodeParser { get; set; }
+        public CSharpCodeParser CodeParser { get; set; }
 
         public ISet<string> VoidElements
         {
@@ -234,7 +234,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
             using (PushSpanConfig())
             {
-                CodeParser.ParseBlock();
+                CodeParser.ParseBlock1();
             }
 
             Span.Start = CurrentLocation;
@@ -275,7 +275,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
         }
 
-        public override void ParseBlock()
+        public override void ParseBlock1()
         {
             if (Context == null)
             {
@@ -1583,7 +1583,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 tokenType != SyntaxKind.Unknown;
         }
 
-        public void ParseDocument()
+        public void ParseDocument1()
         {
             if (Context == null)
             {

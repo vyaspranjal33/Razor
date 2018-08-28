@@ -16,11 +16,17 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
         private Dictionary<CSharpKeyword, Action<SyntaxListBuilder<RazorSyntaxNode>, CSharpTransitionSyntax>> _keywordParserMap = new Dictionary<CSharpKeyword, Action<SyntaxListBuilder<RazorSyntaxNode>, CSharpTransitionSyntax>>();
         private Dictionary<string, Action<SyntaxListBuilder<RazorSyntaxNode>, CSharpTransitionSyntax>> _directiveParserMap = new Dictionary<string, Action<SyntaxListBuilder<RazorSyntaxNode>, CSharpTransitionSyntax>>(StringComparer.Ordinal);
 
-        public CSharpSyntaxNode Parse()
+        public CSharpCodeBlockSyntax ParseBlock()
         {
             if (Context == null)
             {
                 throw new InvalidOperationException(Resources.Parser_Context_Not_Set);
+            }
+
+            if (EndOfFile)
+            {
+                // Nothing to parse.
+                return null;
             }
 
             using (PushSpanContextConfig(DefaultSpanContextConfig))
@@ -584,15 +590,15 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
         }
 
-        private CSharpSyntaxNode ParseNestedBlock()
+        private RazorSyntaxNode ParseNestedBlock()
         {
             var wasNested = IsNested;
             IsNested = true;
 
-            CSharpSyntaxNode nestedBlock;
+            RazorSyntaxNode nestedBlock;
             using (PushSpanContextConfig())
             {
-                nestedBlock = Parse();
+                nestedBlock = ParseBlock();
             }
 
             InitializeContext(SpanContext);
@@ -2125,11 +2131,13 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             var wasNested = IsNested;
             IsNested = false;
 
+            RazorSyntaxNode htmlBlock = null;
             using (PushSpanContextConfig())
             {
-                //HtmlParser.ParseBlock(builder);
+                htmlBlock = HtmlParser.ParseBlock();
             }
 
+            builder.Add(htmlBlock);
             InitializeContext(SpanContext);
 
             IsNested = wasNested;

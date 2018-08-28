@@ -23,6 +23,24 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       return DefaultVisit(node);
     }
 
+    /// <summary>Called when the visitor visits a HtmlDocumentSyntax node.</summary>
+    public virtual TResult VisitHtmlDocument(HtmlDocumentSyntax node)
+    {
+      return DefaultVisit(node);
+    }
+
+    /// <summary>Called when the visitor visits a HtmlMarkupBlockSyntax node.</summary>
+    public virtual TResult VisitHtmlMarkupBlock(HtmlMarkupBlockSyntax node)
+    {
+      return DefaultVisit(node);
+    }
+
+    /// <summary>Called when the visitor visits a HtmlTagBlockSyntax node.</summary>
+    public virtual TResult VisitHtmlTagBlock(HtmlTagBlockSyntax node)
+    {
+      return DefaultVisit(node);
+    }
+
     /// <summary>Called when the visitor visits a CSharpTransitionSyntax node.</summary>
     public virtual TResult VisitCSharpTransition(CSharpTransitionSyntax node)
     {
@@ -136,6 +154,24 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     /// <summary>Called when the visitor visits a HtmlTextLiteralSyntax node.</summary>
     public virtual void VisitHtmlTextLiteral(HtmlTextLiteralSyntax node)
+    {
+      DefaultVisit(node);
+    }
+
+    /// <summary>Called when the visitor visits a HtmlDocumentSyntax node.</summary>
+    public virtual void VisitHtmlDocument(HtmlDocumentSyntax node)
+    {
+      DefaultVisit(node);
+    }
+
+    /// <summary>Called when the visitor visits a HtmlMarkupBlockSyntax node.</summary>
+    public virtual void VisitHtmlMarkupBlock(HtmlMarkupBlockSyntax node)
+    {
+      DefaultVisit(node);
+    }
+
+    /// <summary>Called when the visitor visits a HtmlTagBlockSyntax node.</summary>
+    public virtual void VisitHtmlTagBlock(HtmlTagBlockSyntax node)
     {
       DefaultVisit(node);
     }
@@ -255,10 +291,28 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       return node.Update(startCommentTransition, startCommentStar, comment, endCommentStar, endCommentTransition);
     }
 
-    public override SyntaxNode VisitHtmlText(HtmlTextSyntax node)
+    public override SyntaxNode VisitHtmlTextLiteral(HtmlTextLiteralSyntax node)
     {
       var textTokens = VisitList(node.TextTokens);
       return node.Update(textTokens);
+    }
+
+    public override SyntaxNode VisitHtmlDocument(HtmlDocumentSyntax node)
+    {
+      var document = (HtmlMarkupBlockSyntax)Visit(node.Document);
+      return node.Update(document);
+    }
+
+    public override SyntaxNode VisitHtmlMarkupBlock(HtmlMarkupBlockSyntax node)
+    {
+      var children = VisitList(node.Children);
+      return node.Update(children);
+    }
+
+    public override SyntaxNode VisitHtmlTagBlock(HtmlTagBlockSyntax node)
+    {
+      var children = VisitList(node.Children);
+      return node.Update(children);
     }
 
     public override SyntaxNode VisitCSharpTransition(CSharpTransitionSyntax node)
@@ -433,6 +487,44 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     public static HtmlTextLiteralSyntax HtmlTextLiteral()
     {
       return SyntaxFactory.HtmlTextLiteral(default(SyntaxList<SyntaxToken>));
+    }
+
+    /// <summary>Creates a new HtmlDocumentSyntax instance.</summary>
+    public static HtmlDocumentSyntax HtmlDocument(HtmlMarkupBlockSyntax document)
+    {
+      if (document == null)
+        throw new ArgumentNullException(nameof(document));
+      return (HtmlDocumentSyntax)InternalSyntax.SyntaxFactory.HtmlDocument(document == null ? null : (InternalSyntax.HtmlMarkupBlockSyntax)document.Green).CreateRed();
+    }
+
+    /// <summary>Creates a new HtmlDocumentSyntax instance.</summary>
+    public static HtmlDocumentSyntax HtmlDocument()
+    {
+      return SyntaxFactory.HtmlDocument(SyntaxFactory.HtmlMarkupBlock());
+    }
+
+    /// <summary>Creates a new HtmlMarkupBlockSyntax instance.</summary>
+    public static HtmlMarkupBlockSyntax HtmlMarkupBlock(SyntaxList<RazorSyntaxNode> children)
+    {
+      return (HtmlMarkupBlockSyntax)InternalSyntax.SyntaxFactory.HtmlMarkupBlock(children.Node.ToGreenList<InternalSyntax.RazorSyntaxNode>()).CreateRed();
+    }
+
+    /// <summary>Creates a new HtmlMarkupBlockSyntax instance.</summary>
+    public static HtmlMarkupBlockSyntax HtmlMarkupBlock()
+    {
+      return SyntaxFactory.HtmlMarkupBlock(default(SyntaxList<RazorSyntaxNode>));
+    }
+
+    /// <summary>Creates a new HtmlTagBlockSyntax instance.</summary>
+    public static HtmlTagBlockSyntax HtmlTagBlock(SyntaxList<RazorSyntaxNode> children)
+    {
+      return (HtmlTagBlockSyntax)InternalSyntax.SyntaxFactory.HtmlTagBlock(children.Node.ToGreenList<InternalSyntax.RazorSyntaxNode>()).CreateRed();
+    }
+
+    /// <summary>Creates a new HtmlTagBlockSyntax instance.</summary>
+    public static HtmlTagBlockSyntax HtmlTagBlock()
+    {
+      return SyntaxFactory.HtmlTagBlock(default(SyntaxList<RazorSyntaxNode>));
     }
 
     /// <summary>Creates a new CSharpTransitionSyntax instance.</summary>

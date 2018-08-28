@@ -30,6 +30,18 @@
     <Kind Name="HtmlTextLiteral" />
     <Field Name="TextTokens" Type="SyntaxList&lt;SyntaxToken&gt;" />
   </Node>
+  <Node Name="HtmlDocumentSyntax" Base="HtmlSyntaxNode">
+    <Kind Name="HtmlDocument" />
+    <Field Name="Document" Type="HtmlMarkupBlockSyntax" />
+  </Node>
+  <Node Name="HtmlMarkupBlockSyntax" Base="HtmlSyntaxNode">
+    <Kind Name="HtmlMarkupBlock" />
+    <Field Name="Children" Type="SyntaxList&lt;RazorSyntaxNode&gt;" />
+  </Node>
+  <Node Name="HtmlTagBlockSyntax" Base="HtmlSyntaxNode">
+    <Kind Name="HtmlTagBlock" />
+    <Field Name="Children" Type="SyntaxList&lt;RazorSyntaxNode&gt;" />
+  </Node>
   
   <!-- CSharp -->
   <AbstractNode Name="CSharpSyntaxNode" Base="RazorSyntaxNode" />

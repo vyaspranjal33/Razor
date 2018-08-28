@@ -271,7 +271,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             codeParser.HtmlParser = markupParser;
             markupParser.CodeParser = codeParser;
 
-            markupParser.ParseDocument();
+            markupParser.ParseDocument1();
 
             var root = context.Builder.Build();
             var diagnostics = context.ErrorSink.Errors;
@@ -301,7 +301,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 HtmlParser = parser,
             };
 
-            parser.ParseBlock();
+            parser.ParseBlock1();
 
             var root = context.Builder.Build();
             var diagnostics = context.ErrorSink.Errors;
@@ -332,7 +332,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 CodeParser = parser,
             };
 
-            parser.ParseBlock();
+            parser.ParseBlock1();
 
             var root = context.Builder.Build();
             var diagnostics = context.ErrorSink.Errors;

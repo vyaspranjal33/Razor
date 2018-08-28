@@ -999,7 +999,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
         }
 
-        protected HtmlTextSyntax OutputTokensAsHtmlLiteral()
+        protected HtmlTextLiteralSyntax OutputTokensAsHtmlLiteral()
         {
             var tokens = OutputTokens();
             if (tokens.Count == 0)
@@ -1007,7 +1007,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 return null;
             }
 
-            return GetNodeWithSpanContext(SyntaxFactory.HtmlText(tokens));
+            return GetNodeWithSpanContext(SyntaxFactory.HtmlTextLiteral(tokens));
         }
 
         protected TNode GetNodeWithSpanContext<TNode>(TNode node) where TNode : Syntax.GreenNode
