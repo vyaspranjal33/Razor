@@ -17,6 +17,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       return DefaultVisit(node);
     }
 
+    /// <summary>Called when the visitor visits a RazorMetaCodeSyntax node.</summary>
+    public virtual TResult VisitRazorMetaCode(RazorMetaCodeSyntax node)
+    {
+      return DefaultVisit(node);
+    }
+
     /// <summary>Called when the visitor visits a HtmlTextLiteralSyntax node.</summary>
     public virtual TResult VisitHtmlTextLiteral(HtmlTextLiteralSyntax node)
     {
@@ -41,14 +47,14 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       return DefaultVisit(node);
     }
 
-    /// <summary>Called when the visitor visits a CSharpTransitionSyntax node.</summary>
-    public virtual TResult VisitCSharpTransition(CSharpTransitionSyntax node)
+    /// <summary>Called when the visitor visits a HtmlCommentBlockSyntax node.</summary>
+    public virtual TResult VisitHtmlCommentBlock(HtmlCommentBlockSyntax node)
     {
       return DefaultVisit(node);
     }
 
-    /// <summary>Called when the visitor visits a CSharpMetaCodeSyntax node.</summary>
-    public virtual TResult VisitCSharpMetaCode(CSharpMetaCodeSyntax node)
+    /// <summary>Called when the visitor visits a CSharpTransitionSyntax node.</summary>
+    public virtual TResult VisitCSharpTransition(CSharpTransitionSyntax node)
     {
       return DefaultVisit(node);
     }
@@ -152,6 +158,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       DefaultVisit(node);
     }
 
+    /// <summary>Called when the visitor visits a RazorMetaCodeSyntax node.</summary>
+    public virtual void VisitRazorMetaCode(RazorMetaCodeSyntax node)
+    {
+      DefaultVisit(node);
+    }
+
     /// <summary>Called when the visitor visits a HtmlTextLiteralSyntax node.</summary>
     public virtual void VisitHtmlTextLiteral(HtmlTextLiteralSyntax node)
     {
@@ -176,14 +188,14 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       DefaultVisit(node);
     }
 
-    /// <summary>Called when the visitor visits a CSharpTransitionSyntax node.</summary>
-    public virtual void VisitCSharpTransition(CSharpTransitionSyntax node)
+    /// <summary>Called when the visitor visits a HtmlCommentBlockSyntax node.</summary>
+    public virtual void VisitHtmlCommentBlock(HtmlCommentBlockSyntax node)
     {
       DefaultVisit(node);
     }
 
-    /// <summary>Called when the visitor visits a CSharpMetaCodeSyntax node.</summary>
-    public virtual void VisitCSharpMetaCode(CSharpMetaCodeSyntax node)
+    /// <summary>Called when the visitor visits a CSharpTransitionSyntax node.</summary>
+    public virtual void VisitCSharpTransition(CSharpTransitionSyntax node)
     {
       DefaultVisit(node);
     }
@@ -291,6 +303,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       return node.Update(startCommentTransition, startCommentStar, comment, endCommentStar, endCommentTransition);
     }
 
+    public override SyntaxNode VisitRazorMetaCode(RazorMetaCodeSyntax node)
+    {
+      var metaCode = VisitList(node.MetaCode);
+      return node.Update(metaCode);
+    }
+
     public override SyntaxNode VisitHtmlTextLiteral(HtmlTextLiteralSyntax node)
     {
       var textTokens = VisitList(node.TextTokens);
@@ -315,16 +333,16 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       return node.Update(children);
     }
 
+    public override SyntaxNode VisitHtmlCommentBlock(HtmlCommentBlockSyntax node)
+    {
+      var children = VisitList(node.Children);
+      return node.Update(children);
+    }
+
     public override SyntaxNode VisitCSharpTransition(CSharpTransitionSyntax node)
     {
       var transition = (SyntaxToken)VisitToken(node.Transition);
       return node.Update(transition);
-    }
-
-    public override SyntaxNode VisitCSharpMetaCode(CSharpMetaCodeSyntax node)
-    {
-      var metaCode = VisitList(node.MetaCode);
-      return node.Update(metaCode);
     }
 
     public override SyntaxNode VisitCSharpLiteral(CSharpLiteralSyntax node)
@@ -378,9 +396,9 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public override SyntaxNode VisitCSharpStatementBody(CSharpStatementBodySyntax node)
     {
-      var openBrace = (CSharpMetaCodeSyntax)Visit(node.OpenBrace);
+      var openBrace = (RazorMetaCodeSyntax)Visit(node.OpenBrace);
       var cSharpCode = (CSharpCodeBlockSyntax)Visit(node.CSharpCode);
-      var closeBrace = (CSharpMetaCodeSyntax)Visit(node.CloseBrace);
+      var closeBrace = (RazorMetaCodeSyntax)Visit(node.CloseBrace);
       return node.Update(openBrace, cSharpCode, closeBrace);
     }
 
@@ -393,9 +411,9 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public override SyntaxNode VisitCSharpExpressionBody(CSharpExpressionBodySyntax node)
     {
-      var openParen = (CSharpMetaCodeSyntax)Visit(node.OpenParen);
+      var openParen = (RazorMetaCodeSyntax)Visit(node.OpenParen);
       var cSharpCode = (CSharpCodeBlockSyntax)Visit(node.CSharpCode);
-      var closeParen = (CSharpMetaCodeSyntax)Visit(node.CloseParen);
+      var closeParen = (RazorMetaCodeSyntax)Visit(node.CloseParen);
       return node.Update(openParen, cSharpCode, closeParen);
     }
 
@@ -421,7 +439,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public override SyntaxNode VisitCSharpDirectiveBody(CSharpDirectiveBodySyntax node)
     {
-      var keyword = (CSharpSyntaxNode)Visit(node.Keyword);
+      var keyword = (RazorSyntaxNode)Visit(node.Keyword);
       var cSharpCode = (CSharpCodeBlockSyntax)Visit(node.CSharpCode);
       return node.Update(keyword, cSharpCode);
     }
@@ -477,6 +495,18 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       return SyntaxFactory.RazorCommentBlock(SyntaxFactory.Token(SyntaxKind.RazorCommentTransition), SyntaxFactory.Token(SyntaxKind.RazorCommentStar), default(SyntaxToken), SyntaxFactory.Token(SyntaxKind.RazorCommentStar), SyntaxFactory.Token(SyntaxKind.RazorCommentTransition));
     }
 
+    /// <summary>Creates a new RazorMetaCodeSyntax instance.</summary>
+    public static RazorMetaCodeSyntax RazorMetaCode(SyntaxList<SyntaxToken> metaCode)
+    {
+      return (RazorMetaCodeSyntax)InternalSyntax.SyntaxFactory.RazorMetaCode(metaCode.Node.ToGreenList<InternalSyntax.SyntaxToken>()).CreateRed();
+    }
+
+    /// <summary>Creates a new RazorMetaCodeSyntax instance.</summary>
+    public static RazorMetaCodeSyntax RazorMetaCode()
+    {
+      return SyntaxFactory.RazorMetaCode(default(SyntaxList<SyntaxToken>));
+    }
+
     /// <summary>Creates a new HtmlTextLiteralSyntax instance.</summary>
     public static HtmlTextLiteralSyntax HtmlTextLiteral(SyntaxList<SyntaxToken> textTokens)
     {
@@ -527,6 +557,18 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       return SyntaxFactory.HtmlTagBlock(default(SyntaxList<RazorSyntaxNode>));
     }
 
+    /// <summary>Creates a new HtmlCommentBlockSyntax instance.</summary>
+    public static HtmlCommentBlockSyntax HtmlCommentBlock(SyntaxList<RazorSyntaxNode> children)
+    {
+      return (HtmlCommentBlockSyntax)InternalSyntax.SyntaxFactory.HtmlCommentBlock(children.Node.ToGreenList<InternalSyntax.RazorSyntaxNode>()).CreateRed();
+    }
+
+    /// <summary>Creates a new HtmlCommentBlockSyntax instance.</summary>
+    public static HtmlCommentBlockSyntax HtmlCommentBlock()
+    {
+      return SyntaxFactory.HtmlCommentBlock(default(SyntaxList<RazorSyntaxNode>));
+    }
+
     /// <summary>Creates a new CSharpTransitionSyntax instance.</summary>
     public static CSharpTransitionSyntax CSharpTransition(SyntaxToken transition)
     {
@@ -544,18 +586,6 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     public static CSharpTransitionSyntax CSharpTransition()
     {
       return SyntaxFactory.CSharpTransition(SyntaxFactory.Token(SyntaxKind.Transition));
-    }
-
-    /// <summary>Creates a new CSharpMetaCodeSyntax instance.</summary>
-    public static CSharpMetaCodeSyntax CSharpMetaCode(SyntaxList<SyntaxToken> metaCode)
-    {
-      return (CSharpMetaCodeSyntax)InternalSyntax.SyntaxFactory.CSharpMetaCode(metaCode.Node.ToGreenList<InternalSyntax.SyntaxToken>()).CreateRed();
-    }
-
-    /// <summary>Creates a new CSharpMetaCodeSyntax instance.</summary>
-    public static CSharpMetaCodeSyntax CSharpMetaCode()
-    {
-      return SyntaxFactory.CSharpMetaCode(default(SyntaxList<SyntaxToken>));
     }
 
     /// <summary>Creates a new CSharpLiteralSyntax instance.</summary>
@@ -659,7 +689,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
 
     /// <summary>Creates a new CSharpStatementBodySyntax instance.</summary>
-    public static CSharpStatementBodySyntax CSharpStatementBody(CSharpMetaCodeSyntax openBrace, CSharpCodeBlockSyntax cSharpCode, CSharpMetaCodeSyntax closeBrace)
+    public static CSharpStatementBodySyntax CSharpStatementBody(RazorMetaCodeSyntax openBrace, CSharpCodeBlockSyntax cSharpCode, RazorMetaCodeSyntax closeBrace)
     {
       if (openBrace == null)
         throw new ArgumentNullException(nameof(openBrace));
@@ -667,13 +697,13 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         throw new ArgumentNullException(nameof(cSharpCode));
       if (closeBrace == null)
         throw new ArgumentNullException(nameof(closeBrace));
-      return (CSharpStatementBodySyntax)InternalSyntax.SyntaxFactory.CSharpStatementBody(openBrace == null ? null : (InternalSyntax.CSharpMetaCodeSyntax)openBrace.Green, cSharpCode == null ? null : (InternalSyntax.CSharpCodeBlockSyntax)cSharpCode.Green, closeBrace == null ? null : (InternalSyntax.CSharpMetaCodeSyntax)closeBrace.Green).CreateRed();
+      return (CSharpStatementBodySyntax)InternalSyntax.SyntaxFactory.CSharpStatementBody(openBrace == null ? null : (InternalSyntax.RazorMetaCodeSyntax)openBrace.Green, cSharpCode == null ? null : (InternalSyntax.CSharpCodeBlockSyntax)cSharpCode.Green, closeBrace == null ? null : (InternalSyntax.RazorMetaCodeSyntax)closeBrace.Green).CreateRed();
     }
 
     /// <summary>Creates a new CSharpStatementBodySyntax instance.</summary>
     public static CSharpStatementBodySyntax CSharpStatementBody()
     {
-      return SyntaxFactory.CSharpStatementBody(SyntaxFactory.CSharpMetaCode(), SyntaxFactory.CSharpCodeBlock(), SyntaxFactory.CSharpMetaCode());
+      return SyntaxFactory.CSharpStatementBody(SyntaxFactory.RazorMetaCode(), SyntaxFactory.CSharpCodeBlock(), SyntaxFactory.RazorMetaCode());
     }
 
     /// <summary>Creates a new CSharpExpression instance.</summary>
@@ -693,7 +723,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
 
     /// <summary>Creates a new CSharpExpressionBodySyntax instance.</summary>
-    public static CSharpExpressionBodySyntax CSharpExpressionBody(CSharpMetaCodeSyntax openParen, CSharpCodeBlockSyntax cSharpCode, CSharpMetaCodeSyntax closeParen)
+    public static CSharpExpressionBodySyntax CSharpExpressionBody(RazorMetaCodeSyntax openParen, CSharpCodeBlockSyntax cSharpCode, RazorMetaCodeSyntax closeParen)
     {
       if (openParen == null)
         throw new ArgumentNullException(nameof(openParen));
@@ -701,13 +731,13 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         throw new ArgumentNullException(nameof(cSharpCode));
       if (closeParen == null)
         throw new ArgumentNullException(nameof(closeParen));
-      return (CSharpExpressionBodySyntax)InternalSyntax.SyntaxFactory.CSharpExpressionBody(openParen == null ? null : (InternalSyntax.CSharpMetaCodeSyntax)openParen.Green, cSharpCode == null ? null : (InternalSyntax.CSharpCodeBlockSyntax)cSharpCode.Green, closeParen == null ? null : (InternalSyntax.CSharpMetaCodeSyntax)closeParen.Green).CreateRed();
+      return (CSharpExpressionBodySyntax)InternalSyntax.SyntaxFactory.CSharpExpressionBody(openParen == null ? null : (InternalSyntax.RazorMetaCodeSyntax)openParen.Green, cSharpCode == null ? null : (InternalSyntax.CSharpCodeBlockSyntax)cSharpCode.Green, closeParen == null ? null : (InternalSyntax.RazorMetaCodeSyntax)closeParen.Green).CreateRed();
     }
 
     /// <summary>Creates a new CSharpExpressionBodySyntax instance.</summary>
     public static CSharpExpressionBodySyntax CSharpExpressionBody()
     {
-      return SyntaxFactory.CSharpExpressionBody(SyntaxFactory.CSharpMetaCode(), SyntaxFactory.CSharpCodeBlock(), SyntaxFactory.CSharpMetaCode());
+      return SyntaxFactory.CSharpExpressionBody(SyntaxFactory.RazorMetaCode(), SyntaxFactory.CSharpCodeBlock(), SyntaxFactory.RazorMetaCode());
     }
 
     /// <summary>Creates a new CSharpImplicitExpression instance.</summary>
@@ -757,15 +787,15 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
 
     /// <summary>Creates a new CSharpDirectiveBodySyntax instance.</summary>
-    public static CSharpDirectiveBodySyntax CSharpDirectiveBody(CSharpSyntaxNode keyword, CSharpCodeBlockSyntax cSharpCode)
+    public static CSharpDirectiveBodySyntax CSharpDirectiveBody(RazorSyntaxNode keyword, CSharpCodeBlockSyntax cSharpCode)
     {
       if (keyword == null)
         throw new ArgumentNullException(nameof(keyword));
-      return (CSharpDirectiveBodySyntax)InternalSyntax.SyntaxFactory.CSharpDirectiveBody(keyword == null ? null : (InternalSyntax.CSharpSyntaxNode)keyword.Green, cSharpCode == null ? null : (InternalSyntax.CSharpCodeBlockSyntax)cSharpCode.Green).CreateRed();
+      return (CSharpDirectiveBodySyntax)InternalSyntax.SyntaxFactory.CSharpDirectiveBody(keyword == null ? null : (InternalSyntax.RazorSyntaxNode)keyword.Green, cSharpCode == null ? null : (InternalSyntax.CSharpCodeBlockSyntax)cSharpCode.Green).CreateRed();
     }
 
     /// <summary>Creates a new CSharpDirectiveBodySyntax instance.</summary>
-    public static CSharpDirectiveBodySyntax CSharpDirectiveBody(CSharpSyntaxNode keyword)
+    public static CSharpDirectiveBodySyntax CSharpDirectiveBody(RazorSyntaxNode keyword)
     {
       return SyntaxFactory.CSharpDirectiveBody(keyword, default(CSharpCodeBlockSyntax));
     }

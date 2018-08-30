@@ -10,7 +10,8 @@ namespace Microsoft.AspNetCore.Razor.Language
         HtmlTextLiteral,
         HtmlDocument,
         HtmlMarkupBlock,
-        HtmlDeclaration,
+        HtmlTagBlock,
+        HtmlCommentBlock,
 
         // CSharp
         CSharpBlock,
@@ -29,11 +30,11 @@ namespace Microsoft.AspNetCore.Razor.Language
         CSharpExpressionLiteral,
         CSharpDirectiveLiteral,
         CSharpCodeLiteral,
-        CSharpMetaCode,
         CSharpTransition,
 
         // Common
         RazorComment,
+        RazorMetaCode,
         #endregion
 
         #region Tokens

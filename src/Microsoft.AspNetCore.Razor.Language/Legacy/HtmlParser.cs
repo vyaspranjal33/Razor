@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -209,7 +210,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 else if (NextIs(SyntaxKind.QuestionMark))
                 {
                     AcceptTokenAndMoveNext(); // Accept '<'
-                    ParseXmlPI(builder);
+                    TryParseXmlPI();
                     return;
                 }
 
@@ -267,6 +268,196 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 builder.Add(tagBlock);
                 Pool.Free(tagBuilder);
             }
+        }
+
+        private bool ParseBangTag(SyntaxListBuilder<RazorSyntaxNode> builder)
+        {
+            // Accept "!"
+            Assert(SyntaxKind.Bang);
+
+            if (AcceptTokenAndMoveNext())
+            {
+                if (IsHtmlCommentAhead())
+                {
+                    var htmlCommentBuilder = Pool.Allocate<RazorSyntaxNode>();
+                    // Accept the double-hyphen token at the beginning of the comment block.
+                    AcceptTokenAndMoveNext();
+                    SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+                    htmlCommentBuilder.Add(OutputTokensAsHtmlLiteral());
+
+                    SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.Whitespace;
+                    while (!EndOfFile)
+                    {
+                        SkipToAndParseCode(htmlCommentBuilder, SyntaxKind.DoubleHyphen);
+                        var lastDoubleHyphen = AcceptAllButLastDoubleHyphens1();
+
+                        if (At(SyntaxKind.CloseAngle))
+                        {
+                            // Output the content in the comment block as a separate markup
+                            SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.Whitespace;
+                            htmlCommentBuilder.Add(OutputTokensAsHtmlLiteral());
+
+                            // This is the end of a comment block
+                            AcceptToken(lastDoubleHyphen);
+                            AcceptTokenAndMoveNext();
+                            SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+                            htmlCommentBuilder.Add(OutputTokensAsHtmlLiteral());
+                            return true;
+                        }
+                        else if (lastDoubleHyphen != null)
+                        {
+                            AcceptToken(lastDoubleHyphen);
+                        }
+                    }
+
+                    var commentBlock = SyntaxFactory.HtmlCommentBlock(htmlCommentBuilder.ToList());
+                    builder.Add(commentBlock);
+                    Pool.Free(htmlCommentBuilder);
+                }
+                else if (CurrentToken.Kind == SyntaxKind.LeftBracket)
+                {
+                    if (AcceptTokenAndMoveNext())
+                    {
+                        return TryParseCData();
+                    }
+                }
+                else
+                {
+                    AcceptTokenAndMoveNext();
+                    return AcceptTokenUntilAll(SyntaxKind.CloseAngle);
+                }
+            }
+
+            return false;
+        }
+
+        private bool TryParseCData()
+        {
+            if (CurrentToken.Kind == SyntaxKind.Text && string.Equals(CurrentToken.Content, "cdata", StringComparison.OrdinalIgnoreCase))
+            {
+                if (AcceptTokenAndMoveNext())
+                {
+                    if (CurrentToken.Kind == SyntaxKind.LeftBracket)
+                    {
+                        return AcceptTokenUntilAll(SyntaxKind.RightBracket, SyntaxKind.RightBracket, SyntaxKind.CloseAngle);
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private bool TryParseXmlPI()
+        {
+            // Accept "?"
+            Assert(SyntaxKind.QuestionMark);
+            AcceptTokenAndMoveNext();
+            return AcceptTokenUntilAll(SyntaxKind.QuestionMark, SyntaxKind.CloseAngle);
+        }
+
+        private void ParseOptionalBangEscape(SyntaxListBuilder<RazorSyntaxNode> builder)
+        {
+            if (IsBangEscape(lookahead: 0))
+            {
+                builder.Add(OutputTokensAsHtmlLiteral());
+
+                // Accept the parser escape character '!'.
+                Assert(SyntaxKind.Bang);
+                AcceptTokenAndMoveNext();
+
+                // Setup the metacode span that we will be outputing.
+                SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
+                builder.Add(OutputAsMetaCode(OutputTokens()));
+            }
+        }
+
+        private bool CurrentScriptTagExpectsHtml(SyntaxListBuilder<RazorSyntaxNode> builder)
+        {
+            Debug.Assert(!builder.IsNull);
+
+            for (var i = 0; i < builder.Count; i++)
+            {
+                var node = builder[i];
+                if (node.IsToken || node.IsTrivia)
+                {
+                    continue;
+                }
+
+                var annotation = node.GetAnnotations().FirstOrDefault(a => a.Kind == SyntaxConstants.SpanContextKind);
+                if (annotation != null &&
+                    annotation.Data is SpanContext context &&
+                    context.ChunkGenerator is AttributeBlockChunkGenerator)
+                {
+                    // TODO this and below
+                }
+            }
+            var typeAttribute = builder.Any.Children
+                .OfType<Block>()
+                .Where(block =>
+                    block.ChunkGenerator is AttributeBlockChunkGenerator &&
+                    block.Children.Count() >= 2)
+                .FirstOrDefault(IsTypeAttribute);
+
+            if (typeAttribute != null)
+            {
+                var contentValues = typeAttribute.Children
+                    .OfType<Span>()
+                    .Where(childSpan => childSpan.ChunkGenerator is LiteralAttributeChunkGenerator)
+                    .Select(childSpan => childSpan.Content);
+
+                var scriptType = string.Concat(contentValues).Trim();
+
+                // Does not allow charset parameter (or any other parameters).
+                return string.Equals(scriptType, "text/html", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
+        }
+
+        protected SyntaxToken AcceptAllButLastDoubleHyphens()
+        {
+            var lastDoubleHyphen = CurrentToken;
+            AcceptTokenWhile(s =>
+            {
+                if (NextIs(SyntaxKind.DoubleHyphen))
+                {
+                    lastDoubleHyphen = s;
+                    return true;
+                }
+
+                return false;
+            });
+
+            NextToken();
+
+            if (At(SyntaxKind.Text) && IsHyphen(CurrentToken))
+            {
+                // Doing this here to maintain the order of tokens
+                if (!NextIs(SyntaxKind.CloseAngle))
+                {
+                    AcceptToken(lastDoubleHyphen);
+                    lastDoubleHyphen = null;
+                }
+
+                AcceptTokenAndMoveNext();
+            }
+
+            return lastDoubleHyphen;
+        }
+
+        private bool AcceptTokenUntilAll(params SyntaxKind[] endSequence)
+        {
+            while (!EndOfFile)
+            {
+                SkipToAndParseCode(endSequence[0]);
+                if (AcceptAllToken(endSequence))
+                {
+                    return true;
+                }
+            }
+            Debug.Assert(EndOfFile);
+            SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.Any;
+            return false;
         }
 
         public HtmlMarkupBlockSyntax ParseBlock()

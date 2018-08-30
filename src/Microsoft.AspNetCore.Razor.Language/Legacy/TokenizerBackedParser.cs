@@ -1010,6 +1010,20 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             return GetNodeWithSpanContext(SyntaxFactory.HtmlTextLiteral(tokens));
         }
 
+        protected RazorMetaCodeSyntax OutputAsMetaCode(SyntaxList<SyntaxToken> tokens, AcceptedCharactersInternal? accepted = null)
+        {
+            if (tokens.Count == 0)
+            {
+                return null;
+            }
+
+            var metacode = SyntaxFactory.RazorMetaCode(tokens);
+            SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
+            SpanContext.EditHandler.AcceptedCharacters = accepted.HasValue ? accepted.Value : AcceptedCharactersInternal.None;
+
+            return GetNodeWithSpanContext(metacode);
+        }
+
         protected TNode GetNodeWithSpanContext<TNode>(TNode node) where TNode : Syntax.GreenNode
         {
             var spanContext = SpanContext.Build();

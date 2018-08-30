@@ -516,7 +516,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                         while (!EndOfFile)
                         {
                             SkipToAndParseCode(SyntaxKind.DoubleHyphen);
-                            var lastDoubleHyphen = AcceptAllButLastDoubleHyphens();
+                            var lastDoubleHyphen = AcceptAllButLastDoubleHyphens1();
 
                             if (At(SyntaxKind.CloseAngle))
                             {
@@ -553,7 +553,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             return false;
         }
 
-        protected SyntaxToken AcceptAllButLastDoubleHyphens()
+        protected SyntaxToken AcceptAllButLastDoubleHyphens1()
         {
             var lastDoubleHyphen = CurrentToken;
             AcceptWhile(s =>
@@ -1353,7 +1353,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                     }
                     else if (string.Equals(tagName, ScriptTagName, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (!CurrentScriptTagExpectsHtml())
+                        if (!CurrentScriptTagExpectsHtml1())
                         {
                             CompleteTagBlockWithSpan(tagBlockWrapper, AcceptedCharactersInternal.None, SpanKindInternal.Markup);
 
@@ -1674,7 +1674,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
                     // If the script tag expects javascript content then we should do minimal parsing until we reach
                     // the end script tag. Don't want to incorrectly parse a "var tag = '<input />';" as an HTML tag.
-                    if (scriptTag && !CurrentScriptTagExpectsHtml())
+                    if (scriptTag && !CurrentScriptTagExpectsHtml1())
                     {
                         Output(SpanKindInternal.Markup);
                         tagBlock.Dispose();
@@ -1705,7 +1705,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
         }
 
-        private bool CurrentScriptTagExpectsHtml()
+        private bool CurrentScriptTagExpectsHtml1()
         {
             var blockBuilder = Context.Builder.CurrentBlock;
 

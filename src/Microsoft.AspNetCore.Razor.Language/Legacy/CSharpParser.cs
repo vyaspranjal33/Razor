@@ -842,7 +842,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
             var savedErrorSink = Context.ErrorSink;
             var directiveErrorSink = new ErrorSink();
-            CSharpMetaCodeSyntax keywordBlock = null;
+            RazorMetaCodeSyntax keywordBlock = null;
             var directiveBuilder = Pool.Allocate<RazorSyntaxNode>();
 
             Context.ErrorSink = directiveErrorSink;
@@ -986,7 +986,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
             var directiveBuilder = Pool.Allocate<RazorSyntaxNode>();
             var directiveChunkGenerator = new DirectiveChunkGenerator(descriptor);
-            CSharpMetaCodeSyntax keywordBlock = null;
+            RazorMetaCodeSyntax keywordBlock = null;
 
             try
             {
@@ -2107,20 +2107,6 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
 
             return GetNodeWithSpanContext(SyntaxFactory.CSharpLiteral(tokens));
-        }
-
-        private CSharpMetaCodeSyntax OutputAsMetaCode(SyntaxList<SyntaxToken> tokens, AcceptedCharactersInternal? accepted = null)
-        {
-            if (tokens.Count == 0)
-            {
-                return null;
-            }
-
-            var metacode = SyntaxFactory.CSharpMetaCode(tokens);
-            SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
-            SpanContext.EditHandler.AcceptedCharacters = accepted.HasValue ? accepted.Value : AcceptedCharactersInternal.None;
-
-            return GetNodeWithSpanContext(metacode);
         }
 
         private void OtherParserBlock(SyntaxListBuilder<RazorSyntaxNode> builder)

@@ -23,6 +23,10 @@
       <Kind Name="RazorCommentTransition" />
     </Field>
   </Node>
+  <Node Name="RazorMetaCodeSyntax" Base="RazorSyntaxNode">
+    <Kind Name="RazorMetaCode" />
+    <Field Name="MetaCode" Type="SyntaxList&lt;SyntaxToken&gt;" />
+  </Node>
 
   <!-- HTML -->
   <AbstractNode Name="HtmlSyntaxNode" Base="RazorSyntaxNode" />
@@ -42,6 +46,10 @@
     <Kind Name="HtmlTagBlock" />
     <Field Name="Children" Type="SyntaxList&lt;RazorSyntaxNode&gt;" />
   </Node>
+  <Node Name="HtmlCommentBlockSyntax" Base="HtmlSyntaxNode">
+    <Kind Name="HtmlCommentBlock" />
+    <Field Name="Children" Type="SyntaxList&lt;RazorSyntaxNode&gt;" />
+  </Node>
   
   <!-- CSharp -->
   <AbstractNode Name="CSharpSyntaxNode" Base="RazorSyntaxNode" />
@@ -50,10 +58,6 @@
     <Field Name="Transition" Type="SyntaxToken">
       <Kind Name="Transition" />
     </Field>
-  </Node>
-  <Node Name="CSharpMetaCodeSyntax" Base="CSharpSyntaxNode">
-    <Kind Name="CSharpMetaCode" />
-    <Field Name="MetaCode" Type="SyntaxList&lt;SyntaxToken&gt;" />
   </Node>
   <Node Name="CSharpLiteralSyntax" Base="CSharpSyntaxNode">
     <Kind Name="CSharpLiteral" />
@@ -98,9 +102,9 @@
   </Node>
   <Node Name="CSharpStatementBodySyntax" Base="CSharpSyntaxNode">
     <Kind Name="CSharpStatementBody" />
-    <Field Name="OpenBrace" Type="CSharpMetaCodeSyntax" />
+    <Field Name="OpenBrace" Type="RazorMetaCodeSyntax" />
     <Field Name="CSharpCode" Type="CSharpCodeBlockSyntax" />
-    <Field Name="CloseBrace" Type="CSharpMetaCodeSyntax" />
+    <Field Name="CloseBrace" Type="RazorMetaCodeSyntax" />
   </Node>
   <Node Name="CSharpExpression" Base="CSharpBlockSyntax">
     <Kind Name="CSharpExpression" />
@@ -113,9 +117,9 @@
   </Node>
   <Node Name="CSharpExpressionBodySyntax" Base="CSharpSyntaxNode">
     <Kind Name="CSharpExpressionBody" />
-    <Field Name="OpenParen" Type="CSharpMetaCodeSyntax" />
+    <Field Name="OpenParen" Type="RazorMetaCodeSyntax" />
     <Field Name="CSharpCode" Type="CSharpCodeBlockSyntax" />
-    <Field Name="CloseParen" Type="CSharpMetaCodeSyntax" />
+    <Field Name="CloseParen" Type="RazorMetaCodeSyntax" />
   </Node>
   <Node Name="CSharpImplicitExpression" Base="CSharpBlockSyntax">
     <Kind Name="CSharpImplicitExpression" />
@@ -141,7 +145,7 @@
   </Node>
   <Node Name="CSharpDirectiveBodySyntax" Base="CSharpSyntaxNode">
     <Kind Name="CSharpDirectiveBody" />
-    <Field Name="Keyword" Type="CSharpSyntaxNode" />
+    <Field Name="Keyword" Type="RazorSyntaxNode" />
     <Field Name="CSharpCode" Type="CSharpCodeBlockSyntax" Optional="true" />
   </Node>
 </Tree>
