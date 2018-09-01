@@ -833,14 +833,14 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             else
             {
                 // We are here ($): <tag$ foo="bar" biz="~/Baz" />
-                while (!EndOfFile && !IsEndOfTag())
+                while (!EndOfFile && !IsEndOfTag1())
                 {
                     BeforeAttribute();
                 }
             }
         }
 
-        private bool IsEndOfTag()
+        private bool IsEndOfTag1()
         {
             if (At(SyntaxKind.ForwardSlash))
             {

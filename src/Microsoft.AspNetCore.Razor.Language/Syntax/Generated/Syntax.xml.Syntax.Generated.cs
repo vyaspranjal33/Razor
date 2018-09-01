@@ -498,6 +498,75 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
   }
 
+  internal sealed partial class HtmlAttributeBlockSyntax : HtmlSyntaxNode
+  {
+    private SyntaxNode _children;
+
+    internal HtmlAttributeBlockSyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public SyntaxList<RazorSyntaxNode> Children 
+    {
+        get
+        {
+            return new SyntaxList<RazorSyntaxNode>(GetRed(ref _children, 0));
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _children);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _children;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitHtmlAttributeBlock(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitHtmlAttributeBlock(this);
+    }
+
+    public HtmlAttributeBlockSyntax Update(SyntaxList<RazorSyntaxNode> children)
+    {
+        if (children != Children)
+        {
+            var newNode = SyntaxFactory.HtmlAttributeBlock(children);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public HtmlAttributeBlockSyntax WithChildren(SyntaxList<RazorSyntaxNode> children)
+    {
+        return Update(children);
+    }
+
+    public HtmlAttributeBlockSyntax AddChildren(params RazorSyntaxNode[] items)
+    {
+        return WithChildren(this.Children.AddRange(items));
+    }
+  }
+
   internal sealed partial class HtmlCommentBlockSyntax : HtmlSyntaxNode
   {
     private SyntaxNode _children;

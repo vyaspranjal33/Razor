@@ -540,6 +540,87 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     }
   }
 
+  internal sealed partial class HtmlAttributeBlockSyntax : HtmlSyntaxNode
+  {
+    private readonly GreenNode _children;
+
+    internal HtmlAttributeBlockSyntax(SyntaxKind kind, GreenNode children, RazorDiagnostic[] diagnostics, SyntaxAnnotation[] annotations)
+        : base(kind, diagnostics, annotations)
+    {
+        SlotCount = 1;
+        if (children != null)
+        {
+            AdjustFlagsAndWidth(children);
+            _children = children;
+        }
+    }
+
+
+    internal HtmlAttributeBlockSyntax(SyntaxKind kind, GreenNode children)
+        : base(kind)
+    {
+        SlotCount = 1;
+        if (children != null)
+        {
+            AdjustFlagsAndWidth(children);
+            _children = children;
+        }
+    }
+
+    public SyntaxList<RazorSyntaxNode> Children { get { return new SyntaxList<RazorSyntaxNode>(_children); } }
+
+    internal override GreenNode GetSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _children;
+            default: return null;
+        }
+    }
+
+    internal override SyntaxNode CreateRed(SyntaxNode parent, int position)
+    {
+      return new Syntax.HtmlAttributeBlockSyntax(this, parent, position);
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitHtmlAttributeBlock(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitHtmlAttributeBlock(this);
+    }
+
+    public HtmlAttributeBlockSyntax Update(Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax.SyntaxList<RazorSyntaxNode> children)
+    {
+        if (children != Children)
+        {
+            var newNode = SyntaxFactory.HtmlAttributeBlock(children);
+            var diags = GetDiagnostics();
+            if (diags != null && diags.Length > 0)
+               newNode = newNode.WithDiagnosticsGreen(diags);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               newNode = newNode.WithAnnotationsGreen(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    internal override GreenNode SetDiagnostics(RazorDiagnostic[] diagnostics)
+    {
+         return new HtmlAttributeBlockSyntax(Kind, _children, diagnostics, GetAnnotations());
+    }
+
+    internal override GreenNode SetAnnotations(SyntaxAnnotation[] annotations)
+    {
+         return new HtmlAttributeBlockSyntax(Kind, _children, GetDiagnostics(), annotations);
+    }
+  }
+
   internal sealed partial class HtmlCommentBlockSyntax : HtmlSyntaxNode
   {
     private readonly GreenNode _children;
@@ -1992,6 +2073,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
       return DefaultVisit(node);
     }
 
+    public virtual TResult VisitHtmlAttributeBlock(HtmlAttributeBlockSyntax node)
+    {
+      return DefaultVisit(node);
+    }
+
     public virtual TResult VisitHtmlCommentBlock(HtmlCommentBlockSyntax node)
     {
       return DefaultVisit(node);
@@ -2107,6 +2193,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     }
 
     public virtual void VisitHtmlTagBlock(HtmlTagBlockSyntax node)
+    {
+      DefaultVisit(node);
+    }
+
+    public virtual void VisitHtmlAttributeBlock(HtmlAttributeBlockSyntax node)
     {
       DefaultVisit(node);
     }
@@ -2234,6 +2325,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     }
 
     public override GreenNode VisitHtmlTagBlock(HtmlTagBlockSyntax node)
+    {
+      var children = VisitList(node.Children);
+      return node.Update(children);
+    }
+
+    public override GreenNode VisitHtmlAttributeBlock(HtmlAttributeBlockSyntax node)
     {
       var children = VisitList(node.Children);
       return node.Update(children);
@@ -2444,6 +2541,13 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
       return result;
     }
 
+    public static HtmlAttributeBlockSyntax HtmlAttributeBlock(Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax.SyntaxList<RazorSyntaxNode> children)
+    {
+      var result = new HtmlAttributeBlockSyntax(SyntaxKind.HtmlAttributeBlock, children.Node);
+
+      return result;
+    }
+
     public static HtmlCommentBlockSyntax HtmlCommentBlock(Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax.SyntaxList<RazorSyntaxNode> children)
     {
       var result = new HtmlCommentBlockSyntax(SyntaxKind.HtmlCommentBlock, children.Node);
@@ -2622,6 +2726,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
            typeof(HtmlDocumentSyntax),
            typeof(HtmlMarkupBlockSyntax),
            typeof(HtmlTagBlockSyntax),
+           typeof(HtmlAttributeBlockSyntax),
            typeof(HtmlCommentBlockSyntax),
            typeof(CSharpTransitionSyntax),
            typeof(CSharpLiteralSyntax),

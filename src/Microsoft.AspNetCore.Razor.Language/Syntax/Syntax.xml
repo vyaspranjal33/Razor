@@ -46,6 +46,10 @@
     <Kind Name="HtmlTagBlock" />
     <Field Name="Children" Type="SyntaxList&lt;RazorSyntaxNode&gt;" />
   </Node>
+  <Node Name="HtmlAttributeBlockSyntax" Base="HtmlSyntaxNode">
+    <Kind Name="HtmlAttributeBlock" />
+    <Field Name="Children" Type="SyntaxList&lt;RazorSyntaxNode&gt;" />
+  </Node>
   <Node Name="HtmlCommentBlockSyntax" Base="HtmlSyntaxNode">
     <Kind Name="HtmlCommentBlock" />
     <Field Name="Children" Type="SyntaxList&lt;RazorSyntaxNode&gt;" />

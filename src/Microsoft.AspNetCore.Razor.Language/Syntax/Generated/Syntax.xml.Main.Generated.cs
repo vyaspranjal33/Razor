@@ -47,6 +47,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       return DefaultVisit(node);
     }
 
+    /// <summary>Called when the visitor visits a HtmlAttributeBlockSyntax node.</summary>
+    public virtual TResult VisitHtmlAttributeBlock(HtmlAttributeBlockSyntax node)
+    {
+      return DefaultVisit(node);
+    }
+
     /// <summary>Called when the visitor visits a HtmlCommentBlockSyntax node.</summary>
     public virtual TResult VisitHtmlCommentBlock(HtmlCommentBlockSyntax node)
     {
@@ -184,6 +190,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     /// <summary>Called when the visitor visits a HtmlTagBlockSyntax node.</summary>
     public virtual void VisitHtmlTagBlock(HtmlTagBlockSyntax node)
+    {
+      DefaultVisit(node);
+    }
+
+    /// <summary>Called when the visitor visits a HtmlAttributeBlockSyntax node.</summary>
+    public virtual void VisitHtmlAttributeBlock(HtmlAttributeBlockSyntax node)
     {
       DefaultVisit(node);
     }
@@ -328,6 +340,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
 
     public override SyntaxNode VisitHtmlTagBlock(HtmlTagBlockSyntax node)
+    {
+      var children = VisitList(node.Children);
+      return node.Update(children);
+    }
+
+    public override SyntaxNode VisitHtmlAttributeBlock(HtmlAttributeBlockSyntax node)
     {
       var children = VisitList(node.Children);
       return node.Update(children);
@@ -555,6 +573,18 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     public static HtmlTagBlockSyntax HtmlTagBlock()
     {
       return SyntaxFactory.HtmlTagBlock(default(SyntaxList<RazorSyntaxNode>));
+    }
+
+    /// <summary>Creates a new HtmlAttributeBlockSyntax instance.</summary>
+    public static HtmlAttributeBlockSyntax HtmlAttributeBlock(SyntaxList<RazorSyntaxNode> children)
+    {
+      return (HtmlAttributeBlockSyntax)InternalSyntax.SyntaxFactory.HtmlAttributeBlock(children.Node.ToGreenList<InternalSyntax.RazorSyntaxNode>()).CreateRed();
+    }
+
+    /// <summary>Creates a new HtmlAttributeBlockSyntax instance.</summary>
+    public static HtmlAttributeBlockSyntax HtmlAttributeBlock()
+    {
+      return SyntaxFactory.HtmlAttributeBlock(default(SyntaxList<RazorSyntaxNode>));
     }
 
     /// <summary>Creates a new HtmlCommentBlockSyntax instance.</summary>

@@ -13,6 +13,73 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
         private static readonly TestFile Nested1000 = TestFile.Create("TestFiles/nested-1000.html", typeof(HtmlDocumentTest));
 
         [Fact]
+        public void TestHtmlParser()
+        {
+            //            var content = @"
+            //@{ \r\n  // asdf \r\n x = y;  }
+            //";
+            var content = @"
+
+@custom Foo
+@{
+using
+}
+@case: foo
+@(foo.bar  @(dfdf
+@{ 
+// asdf 
+ x = y;  
+var x = ;
+}
+";
+            var source = TestRazorSourceDocument.Create(content: content);
+            //var options = RazorParserOptions.Create(builder =>
+            //{
+            //    var directive = DirectiveDescriptor.CreateDirective(
+            //        "custom",
+            //        DirectiveKind.SingleLine,
+            //        b =>
+            //        {
+            //            b.AddTypeToken("some", "type");
+            //            b.Usage = DirectiveUsage.FileScopedSinglyOccurring;
+            //            b.Description = "custom directive";
+            //        });
+            //    builder.ParseLeadingDirectives = false;
+            //    builder.Directives.Add(directive);
+            //});
+            var directive = DirectiveDescriptor.CreateDirective(
+                "custom",
+                DirectiveKind.SingleLine,
+                b =>
+                {
+                    b.AddTypeToken("some", "type");
+                    b.Usage = DirectiveUsage.FileScopedSinglyOccurring;
+                    b.Description = "custom directive";
+                });
+            var options = RazorParserOptions.CreateDefault();
+            var context = new ParserContext(source, options);
+            var result = string.Empty;
+            // while (!System.Diagnostics.Debugger.IsAttached)
+            // {
+            //     System.Threading.Thread.Sleep(10);
+            // }
+            // System.Diagnostics.Debugger.Break();
+
+            var parser = new HtmlMarkupParser(context)
+            {
+                CodeParser = new CSharpCodeParser(new[] { directive }, context)
+            };
+
+            var node = parser.ParseDocument().CreateRed();
+            result = SyntaxNodeSerializer.Serialize(node);
+            //parser.ParseBlock1();
+            //var node = context.Builder.Build();
+            //result = SyntaxTreeNodeSerializer.Serialize(node);
+            Console.WriteLine(result);
+            Assert.Equal(string.Empty, result);
+        }
+
+        [Fact]
         public void NestedCodeBlockWithMarkupSetsDotAsMarkup()
         {
             ParseDocumentTest("@if (true) { @if(false) { <div>@something.</div> } }");

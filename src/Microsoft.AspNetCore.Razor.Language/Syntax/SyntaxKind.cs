@@ -11,10 +11,10 @@ namespace Microsoft.AspNetCore.Razor.Language
         HtmlDocument,
         HtmlMarkupBlock,
         HtmlTagBlock,
+        HtmlAttributeBlock,
         HtmlCommentBlock,
 
         // CSharp
-        CSharpBlock,
         CSharpStatement,
         CSharpStatementBody,
         CSharpExpression,

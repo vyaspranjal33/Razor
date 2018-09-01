@@ -35,7 +35,8 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             {
                 if (_tokenBuilder == null)
                 {
-                    _tokenBuilder = _pool.Allocate<SyntaxToken>();
+                    var result = _pool.Allocate<SyntaxToken>();
+                    _tokenBuilder = result.Builder;
                 }
 
                 return _tokenBuilder.Value;
@@ -987,7 +988,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             return nesting == 0;
         }
 
-        protected virtual void ParseEmbeddedTransition(SyntaxListBuilder<RazorSyntaxNode> builder)
+        protected virtual void ParseEmbeddedTransition(in SyntaxListBuilder<RazorSyntaxNode> builder)
         {
         }
 

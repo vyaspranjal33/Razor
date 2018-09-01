@@ -41,9 +41,10 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
             return item;
         }
 
-        internal SyntaxListBuilder<TNode> Allocate<TNode>() where TNode : GreenNode
+        internal PooledResult<TNode> Allocate<TNode>() where TNode : GreenNode
         {
-            return new SyntaxListBuilder<TNode>(this.Allocate());
+            var builder = new SyntaxListBuilder<TNode>(this.Allocate());
+            return new PooledResult<TNode>(this, builder);
         }
 
         internal void Free(SyntaxListBuilder item)
@@ -75,6 +76,25 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
             var list = item.ToList();
             Free(item);
             return list;
+        }
+
+        public readonly struct PooledResult<TNode> : IDisposable where TNode : GreenNode
+        {
+            private readonly SyntaxListBuilder<TNode> _builder;
+            private readonly SyntaxListPool _pool;
+
+            public PooledResult(SyntaxListPool pool, in SyntaxListBuilder<TNode> builder)
+            {
+                _pool = pool;
+                _builder = builder;
+            }
+
+            public SyntaxListBuilder<TNode> Builder => _builder;
+
+            public void Dispose()
+            {
+                _pool.Free(_builder);
+            }
         }
     }
 }
