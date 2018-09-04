@@ -222,6 +222,70 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
   }
 
+  internal sealed partial class HtmlTransitionSyntax : HtmlSyntaxNode
+  {
+    private SyntaxToken _transition;
+
+    internal HtmlTransitionSyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public SyntaxToken Transition 
+    {
+        get
+        {
+            return GetRedAtZero(ref _transition);
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _transition);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _transition;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitHtmlTransition(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitHtmlTransition(this);
+    }
+
+    public HtmlTransitionSyntax Update(SyntaxToken transition)
+    {
+        if (transition != Transition)
+        {
+            var newNode = SyntaxFactory.HtmlTransition(transition);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public HtmlTransitionSyntax WithTransition(SyntaxToken transition)
+    {
+        return Update(transition);
+    }
+  }
+
   internal sealed partial class HtmlTextLiteralSyntax : HtmlSyntaxNode
   {
     private SyntaxNode _textTokens;

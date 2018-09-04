@@ -16,6 +16,7 @@ namespace Microsoft.AspNetCore.Razor.Language
         HtmlMinimizedAttributeBlock,
         HtmlLiteralAttributeValue,
         HtmlDynamicAttributeValue,
+        HtmlTransition,
 
         // CSharp
         CSharpStatement,

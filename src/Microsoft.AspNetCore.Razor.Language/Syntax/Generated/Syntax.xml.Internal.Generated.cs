@@ -222,6 +222,81 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     }
   }
 
+  internal sealed partial class HtmlTransitionSyntax : HtmlSyntaxNode
+  {
+    private readonly SyntaxToken _transition;
+
+    internal HtmlTransitionSyntax(SyntaxKind kind, SyntaxToken transition, RazorDiagnostic[] diagnostics, SyntaxAnnotation[] annotations)
+        : base(kind, diagnostics, annotations)
+    {
+        SlotCount = 1;
+        AdjustFlagsAndWidth(transition);
+        _transition = transition;
+    }
+
+
+    internal HtmlTransitionSyntax(SyntaxKind kind, SyntaxToken transition)
+        : base(kind)
+    {
+        SlotCount = 1;
+        AdjustFlagsAndWidth(transition);
+        _transition = transition;
+    }
+
+    public SyntaxToken Transition { get { return _transition; } }
+
+    internal override GreenNode GetSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _transition;
+            default: return null;
+        }
+    }
+
+    internal override SyntaxNode CreateRed(SyntaxNode parent, int position)
+    {
+      return new Syntax.HtmlTransitionSyntax(this, parent, position);
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitHtmlTransition(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitHtmlTransition(this);
+    }
+
+    public HtmlTransitionSyntax Update(SyntaxToken transition)
+    {
+        if (transition != Transition)
+        {
+            var newNode = SyntaxFactory.HtmlTransition(transition);
+            var diags = GetDiagnostics();
+            if (diags != null && diags.Length > 0)
+               newNode = newNode.WithDiagnosticsGreen(diags);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               newNode = newNode.WithAnnotationsGreen(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    internal override GreenNode SetDiagnostics(RazorDiagnostic[] diagnostics)
+    {
+         return new HtmlTransitionSyntax(Kind, _transition, diagnostics, GetAnnotations());
+    }
+
+    internal override GreenNode SetAnnotations(SyntaxAnnotation[] annotations)
+    {
+         return new HtmlTransitionSyntax(Kind, _transition, GetDiagnostics(), annotations);
+    }
+  }
+
   internal sealed partial class HtmlTextLiteralSyntax : HtmlSyntaxNode
   {
     private readonly GreenNode _textTokens;
@@ -2377,6 +2452,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
       return DefaultVisit(node);
     }
 
+    public virtual TResult VisitHtmlTransition(HtmlTransitionSyntax node)
+    {
+      return DefaultVisit(node);
+    }
+
     public virtual TResult VisitHtmlTextLiteral(HtmlTextLiteralSyntax node)
     {
       return DefaultVisit(node);
@@ -2512,6 +2592,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     }
 
     public virtual void VisitRazorMetaCode(RazorMetaCodeSyntax node)
+    {
+      DefaultVisit(node);
+    }
+
+    public virtual void VisitHtmlTransition(HtmlTransitionSyntax node)
     {
       DefaultVisit(node);
     }
@@ -2658,6 +2743,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     {
       var metaCode = VisitList(node.MetaCode);
       return node.Update(metaCode);
+    }
+
+    public override GreenNode VisitHtmlTransition(HtmlTransitionSyntax node)
+    {
+      var transition = (SyntaxToken)Visit(node.Transition);
+      return node.Update(transition);
     }
 
     public override GreenNode VisitHtmlTextLiteral(HtmlTextLiteralSyntax node)
@@ -2887,6 +2978,23 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     public static RazorMetaCodeSyntax RazorMetaCode(Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax.SyntaxList<SyntaxToken> metaCode)
     {
       var result = new RazorMetaCodeSyntax(SyntaxKind.RazorMetaCode, metaCode.Node);
+
+      return result;
+    }
+
+    public static HtmlTransitionSyntax HtmlTransition(SyntaxToken transition)
+    {
+      if (transition == null)
+        throw new ArgumentNullException(nameof(transition));
+      switch (transition.Kind)
+      {
+        case SyntaxKind.Transition:
+          break;
+        default:
+          throw new ArgumentException("transition");
+      }
+
+      var result = new HtmlTransitionSyntax(SyntaxKind.HtmlTransition, transition);
 
       return result;
     }
@@ -3145,6 +3253,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
         return new Type[] {
            typeof(RazorCommentBlockSyntax),
            typeof(RazorMetaCodeSyntax),
+           typeof(HtmlTransitionSyntax),
            typeof(HtmlTextLiteralSyntax),
            typeof(HtmlDocumentSyntax),
            typeof(HtmlMarkupBlockSyntax),

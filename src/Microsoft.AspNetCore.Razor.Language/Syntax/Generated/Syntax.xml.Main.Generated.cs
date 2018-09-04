@@ -23,6 +23,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
       return DefaultVisit(node);
     }
 
+    /// <summary>Called when the visitor visits a HtmlTransitionSyntax node.</summary>
+    public virtual TResult VisitHtmlTransition(HtmlTransitionSyntax node)
+    {
+      return DefaultVisit(node);
+    }
+
     /// <summary>Called when the visitor visits a HtmlTextLiteralSyntax node.</summary>
     public virtual TResult VisitHtmlTextLiteral(HtmlTextLiteralSyntax node)
     {
@@ -184,6 +190,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     /// <summary>Called when the visitor visits a RazorMetaCodeSyntax node.</summary>
     public virtual void VisitRazorMetaCode(RazorMetaCodeSyntax node)
+    {
+      DefaultVisit(node);
+    }
+
+    /// <summary>Called when the visitor visits a HtmlTransitionSyntax node.</summary>
+    public virtual void VisitHtmlTransition(HtmlTransitionSyntax node)
     {
       DefaultVisit(node);
     }
@@ -355,6 +367,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     {
       var metaCode = VisitList(node.MetaCode);
       return node.Update(metaCode);
+    }
+
+    public override SyntaxNode VisitHtmlTransition(HtmlTransitionSyntax node)
+    {
+      var transition = (SyntaxToken)VisitToken(node.Transition);
+      return node.Update(transition);
     }
 
     public override SyntaxNode VisitHtmlTextLiteral(HtmlTextLiteralSyntax node)
@@ -586,6 +604,25 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     public static RazorMetaCodeSyntax RazorMetaCode()
     {
       return SyntaxFactory.RazorMetaCode(default(SyntaxList<SyntaxToken>));
+    }
+
+    /// <summary>Creates a new HtmlTransitionSyntax instance.</summary>
+    public static HtmlTransitionSyntax HtmlTransition(SyntaxToken transition)
+    {
+      switch (transition.Kind)
+      {
+        case SyntaxKind.Transition:
+          break;
+        default:
+          throw new ArgumentException("transition");
+      }
+      return (HtmlTransitionSyntax)InternalSyntax.SyntaxFactory.HtmlTransition((Syntax.InternalSyntax.SyntaxToken)transition.Green).CreateRed();
+    }
+
+    /// <summary>Creates a new HtmlTransitionSyntax instance.</summary>
+    public static HtmlTransitionSyntax HtmlTransition()
+    {
+      return SyntaxFactory.HtmlTransition(SyntaxFactory.Token(SyntaxKind.Transition));
     }
 
     /// <summary>Creates a new HtmlTextLiteralSyntax instance.</summary>

@@ -420,7 +420,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
             if (attributeCanBeConditional)
             {
-                Span.ChunkGenerator = SpanChunkGenerator.Null; // The block chunk generator will render the prefix
+                SpanContext.ChunkGenerator = SpanChunkGenerator.Null; // The block chunk generator will render the prefix
 
                 // We now have the value prefix which is usually whitespace and/or a quote
                 valuePrefix = OutputTokensAsHtmlLiteral();
@@ -622,7 +622,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                         while (!EndOfFile)
                         {
                             SkipToAndParseCode(htmlCommentBuilder, SyntaxKind.DoubleHyphen);
-                            var lastDoubleHyphen = AcceptAllButLastDoubleHyphens1();
+                            var lastDoubleHyphen = AcceptAllButLastDoubleHyphens();
 
                             if (At(SyntaxKind.CloseAngle))
                             {
@@ -871,13 +871,194 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
         public HtmlMarkupBlockSyntax ParseBlock()
         {
-            using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
+            if (Context == null)
             {
-                // TODO
-                var markupBlock = pooledResult.Builder.ToList();
+                throw new InvalidOperationException(Resources.Parser_Context_Not_Set);
+            }
+
+            using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
+            using (PushSpanContextConfig(DefaultMarkupSpanContext))
+            {
+                var builder = pooledResult.Builder;
+                if (!NextToken())
+                {
+                    return null;
+                }
+
+                AcceptTokenWhile(IsSpacingToken(includeNewLines: true));
+
+                if (CurrentToken.Kind == SyntaxKind.OpenAngle)
+                {
+                    // "<" => Implicit Tag Block
+                    ParseTagBlock(builder, new Stack<Tuple<SyntaxToken, SourceLocation>>());
+                }
+                else if (CurrentToken.Kind == SyntaxKind.Transition)
+                {
+                    // "@" => Explicit Tag/Single Line Block OR Template
+
+                    // Output whitespace
+                    builder.Add(OutputTokensAsHtmlLiteral());
+
+                    // Definitely have a transition span
+                    Assert(SyntaxKind.Transition);
+                    var transitionToken = EatCurrentToken();
+                    SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+                    SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
+                    builder.Add(SyntaxFactory.HtmlTransition(transitionToken));
+                    if (At(SyntaxKind.Transition))
+                    {
+                        SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
+                        AcceptTokenAndMoveNext();
+                        builder.Add(OutputAsMetaCode(OutputTokens()));
+                    }
+                    ParseAfterTransition(builder);
+                }
+                else
+                {
+                    Context.ErrorSink.OnError(
+                        RazorDiagnosticFactory.CreateParsing_MarkupBlockMustStartWithTag(
+                            new SourceSpan(CurrentStart, CurrentToken.Content.Length)));
+                }
+                builder.Add(OutputTokensAsHtmlLiteral());
+
+                var markupBlock = builder.ToList();
 
                 return SyntaxFactory.HtmlMarkupBlock(markupBlock);
             }
+        }
+
+        private void ParseAfterTransition(in SyntaxListBuilder<RazorSyntaxNode> builder)
+        {
+            // "@:" => Explicit Single Line Block
+            if (CurrentToken.Kind == SyntaxKind.Text && CurrentToken.Content.Length > 0 && CurrentToken.Content[0] == ':')
+            {
+                // Split the token
+                var split = Language.SplitToken(CurrentToken, 1, SyntaxKind.Colon);
+
+                // The first part (left) is added to this span and we return a MetaCode span
+                AcceptToken(split.Item1);
+                SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
+                builder.Add(OutputAsMetaCode(OutputTokens()));
+                if (split.Item2 != null)
+                {
+                    AcceptToken(split.Item2);
+                }
+                NextToken();
+                ParseSingleLineMarkup(builder);
+            }
+            else if (CurrentToken.Kind == SyntaxKind.OpenAngle)
+            {
+                ParseTagBlock(builder, new Stack<Tuple<SyntaxToken, SourceLocation>>());
+            }
+        }
+
+        private void ParseSingleLineMarkup(in SyntaxListBuilder<RazorSyntaxNode> builder)
+        {
+            // Parse until a newline, it's that simple!
+            // First, signal to code parser that whitespace is significant to us.
+            var old = Context.WhiteSpaceIsSignificantToAncestorBlock;
+            Context.WhiteSpaceIsSignificantToAncestorBlock = true;
+            SpanContext.EditHandler = new SpanEditHandler(Language.TokenizeString);
+            SkipToAndParseCode(builder, SyntaxKind.NewLine);
+            if (!EndOfFile && CurrentToken.Kind == SyntaxKind.NewLine)
+            {
+                AcceptTokenAndMoveNext();
+                SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+            }
+            PutCurrentBack();
+            Context.WhiteSpaceIsSignificantToAncestorBlock = old;
+            builder.Add(OutputTokensAsHtmlLiteral());
+        }
+
+        private void ParseTagBlock(in SyntaxListBuilder<RazorSyntaxNode> builder, Stack<Tuple<SyntaxToken, SourceLocation>> tags)
+        {
+            // Skip Whitespace and Text
+            var complete = false;
+            do
+            {
+                SkipToAndParseCode(builder, SyntaxKind.OpenAngle);
+
+                // Output everything prior to the OpenAngle into a markup span
+                builder.Add(OutputTokensAsHtmlLiteral());
+
+                // Do not want to start a new tag block if we're at the end of the file.
+                var tagBuilder = builder;
+                IDisposable disposableTagBuilder = null;
+                try
+                {
+                    var atSpecialTag = AtSpecialTag;
+
+                    if (!EndOfFile && !atSpecialTag)
+                    {
+                        // Start a tag block.  This is used to wrap things like <p> or <a class="btn"> etc.
+                        var pooledResult = Pool.Allocate<RazorSyntaxNode>();
+                        disposableTagBuilder = pooledResult;
+                        tagBuilder = pooledResult.Builder;
+                    }
+
+                    if (EndOfFile)
+                    {
+                        EndTagBlock(builder, tags, complete: true);
+                    }
+                    else
+                    {
+                        _bufferedOpenAngle = null;
+                        _lastTagStart = CurrentStart;
+                        Assert(SyntaxKind.OpenAngle);
+                        _bufferedOpenAngle = CurrentToken;
+                        var tagStart = CurrentStart;
+                        if (!NextToken())
+                        {
+                            AcceptToken(_bufferedOpenAngle);
+                            EndTagBlock(builder, tags, complete: false);
+                        }
+                        else
+                        {
+                            complete = ParseAfterTagStart(tagBuilder, builder, tagStart, tags, atSpecialTag);
+                        }
+                    }
+
+                    if (complete)
+                    {
+                        // Completed tags have no accepted characters inside of blocks.
+                        SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+                    }
+
+                    // Output the contents of the tag into its own markup span.
+                    builder.Add(OutputTokensAsHtmlLiteral());
+                }
+                finally
+                {
+                    // Will be null if we were at end of file or special tag when initially created.
+                    if (disposableTagBuilder != null)
+                    {
+                        // End tag block
+                        disposableTagBuilder.Dispose();
+                    }
+                }
+            }
+            while (tags.Count > 0);
+
+            EndTagBlock(tags, complete);
+        }
+
+        private bool ParseAfterTagStart(
+            in SyntaxListBuilder<RazorSyntaxNode> builder,
+            in SyntaxListBuilder<RazorSyntaxNode> parentBuilder,
+            SourceLocation tagStart,
+            Stack<Tuple<SyntaxToken, SourceLocation>> tags,
+            bool atSpecialTag)
+        {
+            // TODO
+            return false;
+        }
+
+        private void EndTagBlock(
+            in SyntaxListBuilder<RazorSyntaxNode> builder,
+            Stack<Tuple<SyntaxToken, SourceLocation>> tags,
+            bool complete)
+        {
+            // TODO
         }
 
         private void DefaultMarkupSpanContext(SpanContextBuilder spanContext)
