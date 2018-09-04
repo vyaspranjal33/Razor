@@ -75,6 +75,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
             public override SyntaxNode Visit(SyntaxNode node)
             {
+                if (node == null)
+                {
+                    return node;
+                }
+
                 if (node.IsList)
                 {
                     return base.DefaultVisit(node);

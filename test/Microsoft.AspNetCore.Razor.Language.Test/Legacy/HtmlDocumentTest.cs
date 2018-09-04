@@ -19,7 +19,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             //@{ \r\n  // asdf \r\n x = y;  }
             //";
             var content = @"
-
+<input checked=""jkjk ` @false`""/>
 @custom Foo
 @{
 using

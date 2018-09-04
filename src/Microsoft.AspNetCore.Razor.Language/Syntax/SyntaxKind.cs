@@ -13,6 +13,9 @@ namespace Microsoft.AspNetCore.Razor.Language
         HtmlTagBlock,
         HtmlAttributeBlock,
         HtmlCommentBlock,
+        HtmlMinimizedAttributeBlock,
+        HtmlLiteralAttributeValue,
+        HtmlDynamicAttributeValue,
 
         // CSharp
         CSharpStatement,

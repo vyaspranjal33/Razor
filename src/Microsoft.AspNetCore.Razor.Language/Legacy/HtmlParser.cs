@@ -318,11 +318,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
             // http://dev.w3.org/html5/spec/tokenization.html#attribute-name-state
             // Read the 'name' (i.e. read until the '=' or whitespace/newline)
-            var name = Enumerable.Empty<SyntaxToken>();
+            var nameTokens = Enumerable.Empty<SyntaxToken>();
             var whitespaceAfterAttributeName = Enumerable.Empty<SyntaxToken>();
             if (IsValidAttributeNameToken(CurrentToken))
             {
-                name = ReadWhile(token =>
+                nameTokens = ReadWhile(token =>
                                  token.Kind != SyntaxKind.Whitespace &&
                                  token.Kind != SyntaxKind.NewLine &&
                                  token.Kind != SyntaxKind.Equals &&
@@ -355,17 +355,13 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 // content (if the previous attribute was malformed).
                 builder.Add(OutputTokensAsHtmlLiteral());
 
-                using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
-                {
-                    var attributeBuilder = pooledResult.Builder;
+                AcceptToken(whitespace);
+                var namePrefix = OutputTokensAsHtmlLiteral();
+                AcceptToken(nameTokens);
+                var name = OutputTokensAsHtmlLiteral();
 
-                    AcceptToken(whitespace);
-                    AcceptToken(name);
-                    attributeBuilder.Add(OutputTokensAsHtmlLiteral());
-
-                    var attributeBlock = SyntaxFactory.HtmlAttributeBlock(attributeBuilder.ToList());
-                    builder.Add(attributeBlock);
-                }
+                var minimizedAttributeBlock = SyntaxFactory.HtmlMinimizedAttributeBlock(namePrefix, name);
+                builder.Add(minimizedAttributeBlock);
 
                 return;
             }
@@ -374,38 +370,33 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             // will go into recovery).
             builder.Add(OutputTokensAsHtmlLiteral());
 
-            // Start a new markup block for the attribute
-            using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
-            {
-                var attributeBuilder = pooledResult.Builder;
+            var attributeBlock = ParseAttributePrefix(whitespace, nameTokens, whitespaceAfterAttributeName);
 
-                ParseAttributePrefix(attributeBuilder, whitespace, name, whitespaceAfterAttributeName);
-
-                var attributeBlock = SyntaxFactory.HtmlAttributeBlock(attributeBuilder.ToList());
-                builder.Add(attributeBlock);
-            }
+            builder.Add(attributeBlock);
         }
 
-        private void ParseAttributePrefix(
-            in SyntaxListBuilder<RazorSyntaxNode> builder,
+        private HtmlAttributeBlockSyntax ParseAttributePrefix(
             IEnumerable<SyntaxToken> whitespace,
             IEnumerable<SyntaxToken> nameTokens,
             IEnumerable<SyntaxToken> whitespaceAfterAttributeName)
         {
             // First, determine if this is a 'data-' attribute (since those can't use conditional attributes)
-            var name = string.Concat(nameTokens.Select(s => s.Content));
+            var nameContent = string.Concat(nameTokens.Select(s => s.Content));
             var attributeCanBeConditional =
                 Context.FeatureFlags.EXPERIMENTAL_AllowConditionalDataDashAttributes ||
-                !name.StartsWith("data-", StringComparison.OrdinalIgnoreCase);
+                !nameContent.StartsWith("data-", StringComparison.OrdinalIgnoreCase);
 
             // Accept the whitespace and name
             AcceptToken(whitespace);
+            var namePrefix = OutputTokensAsHtmlLiteral();
             AcceptToken(nameTokens);
+            var name = OutputTokensAsHtmlLiteral();
 
             // Since this is not a minimized attribute, the whitespace after attribute name belongs to this attribute.
             AcceptToken(whitespaceAfterAttributeName);
+            var nameSuffix = OutputTokensAsHtmlLiteral();
             Assert(SyntaxKind.Equals); // We should be at "="
-            AcceptTokenAndMoveNext();
+            var equalsToken = EatCurrentToken();
 
             var whitespaceAfterEquals = ReadWhile(token => token.Kind == SyntaxKind.Whitespace || token.Kind == SyntaxKind.NewLine);
             var quote = SyntaxKind.Unknown;
@@ -423,65 +414,142 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 PutBack(whitespaceAfterEquals);
             }
 
-            // We now have the prefix: (i.e. '      foo="')
-            var prefix = new LocationTagged<string>(string.Concat(TokenBuilder.ToList().Nodes.Select(s => s.Content)), Span.Start);
+            HtmlTextLiteralSyntax valuePrefix = null;
+            HtmlMarkupBlockSyntax attributeValue = null;
+            HtmlTextLiteralSyntax valueSuffix = null;
 
             if (attributeCanBeConditional)
             {
                 Span.ChunkGenerator = SpanChunkGenerator.Null; // The block chunk generator will render the prefix
-                builder.Add(OutputTokensAsHtmlLiteral());
+
+                // We now have the value prefix which is usually whitespace and/or a quote
+                valuePrefix = OutputTokensAsHtmlLiteral();
 
                 // Read the attribute value only if the value is quoted
                 // or if there is no whitespace between '=' and the unquoted value.
                 if (quote != SyntaxKind.Unknown || !whitespaceAfterEquals.Any())
                 {
-                    // Read the attribute value.
-                    while (!EndOfFile && !IsEndOfAttributeValue(quote, CurrentToken))
+                    using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
                     {
-                        ParseAttributeValue(builder, quote);
+                        var attributeValueBuilder = pooledResult.Builder;
+                        // Read the attribute value.
+                        while (!EndOfFile && !IsEndOfAttributeValue(quote, CurrentToken))
+                        {
+                            ParseAttributeValue(attributeValueBuilder, quote);
+                        }
+
+                        attributeValue = SyntaxFactory.HtmlMarkupBlock(attributeValueBuilder.ToList());
                     }
                 }
 
                 // Capture the suffix
-                var suffix = new LocationTagged<string>(string.Empty, CurrentStart);
                 if (quote != SyntaxKind.Unknown && At(quote))
                 {
-                    suffix = new LocationTagged<string>(CurrentToken.Content, CurrentStart);
                     AcceptTokenAndMoveNext();
-                }
-
-                if (TokenBuilder.Count > 0)
-                {
                     // Again, block chunk generator will render the suffix
                     SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
-                    builder.Add(OutputTokensAsHtmlLiteral());
+                    valueSuffix = OutputTokensAsHtmlLiteral();
                 }
-
-                // Create the block chunk generator
-                Contet.Builder.CurrentBlock.ChunkGenerator = new AttributeBlockChunkGenerator(
-                    name, prefix, suffix);
             }
-            else
+            else if (quote != SyntaxKind.Unknown || !whitespaceAfterEquals.Any())
             {
-                // Output the attribute name, the equals and optional quote. Ex: foo="
-                builder.Add(OutputTokensAsHtmlLiteral());
+                valuePrefix = OutputTokensAsHtmlLiteral();
 
-                if (quote == SyntaxKind.Unknown && whitespaceAfterEquals.Any())
+                using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
                 {
-                    return;
+                    var attributeValueBuilder = pooledResult.Builder;
+                    // Not a "conditional" attribute, so just read the value
+                    SkipToAndParseCode(attributeValueBuilder, token => IsEndOfAttributeValue(quote, token));
+
+                    // Capture the attribute value (will include everything in-between the attribute's quotes).
+                    attributeValue = SyntaxFactory.HtmlMarkupBlock(attributeValueBuilder.ToList());
                 }
-
-                // Not a "conditional" attribute, so just read the value
-                SkipToAndParseCode(builder, token => IsEndOfAttributeValue(quote, token));
-
-                // Output the attribute value (will include everything in-between the attribute's quotes).
-                builder.Add(OutputTokensAsHtmlLiteral());
 
                 if (quote != SyntaxKind.Unknown)
                 {
                     OptionalToken(quote);
+                    valueSuffix = OutputTokensAsHtmlLiteral();
                 }
-                builder.Add(OutputTokensAsHtmlLiteral());
+            }
+            else
+            {
+                // There is no quote and there is whitespace after equals. There is no attribute value.
+            }
+
+            return SyntaxFactory.HtmlAttributeBlock(namePrefix, name, nameSuffix, equalsToken, valuePrefix, attributeValue, valueSuffix);
+        }
+
+        private void ParseAttributeValue(in SyntaxListBuilder<RazorSyntaxNode> builder, SyntaxKind quote)
+        {
+            var prefixStart = CurrentStart;
+            var prefixTokens = ReadWhile(token => token.Kind == SyntaxKind.Whitespace || token.Kind == SyntaxKind.NewLine);
+
+            if (At(SyntaxKind.Transition))
+            {
+                if (NextIs(SyntaxKind.Transition))
+                {
+                    // Wrapping this in a block so that the ConditionalAttributeCollapser doesn't rewrite it.
+                    using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
+                    {
+                        var markupBuilder = pooledResult.Builder;
+                        AcceptToken(prefixTokens);
+
+                        // Render a single "@" in place of "@@".
+                        SpanContext.ChunkGenerator = new LiteralAttributeChunkGenerator(
+                            new LocationTagged<string>(string.Concat(prefixTokens.Select(s => s.Content)), prefixStart),
+                            new LocationTagged<string>(CurrentToken.Content, CurrentStart));
+                        AcceptTokenAndMoveNext();
+                        SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+                        markupBuilder.Add(OutputTokensAsHtmlLiteral());
+
+                        SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
+                        AcceptTokenAndMoveNext();
+                        markupBuilder.Add(OutputTokensAsHtmlLiteral());
+
+                        var markupBlock = SyntaxFactory.HtmlMarkupBlock(markupBuilder.ToList());
+                        builder.Add(markupBlock);
+                    }
+                }
+                else
+                {
+                    AcceptToken(prefixTokens);
+                    var valueStart = CurrentStart;
+                    PutCurrentBack();
+
+                    var prefix = OutputTokensAsHtmlLiteral();
+
+                    // Dynamic value, start a new block and set the chunk generator
+                    using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
+                    {
+                        var dynamicAttributeValueBuilder = pooledResult.Builder;
+
+                        OtherParserBlock(dynamicAttributeValueBuilder);
+                        var value = SyntaxFactory.HtmlDynamicAttributeValue(prefix, SyntaxFactory.HtmlMarkupBlock(dynamicAttributeValueBuilder.ToList()));
+                        builder.Add(value);
+                    }
+                }
+            }
+            else
+            {
+                AcceptToken(prefixTokens);
+                var prefix = OutputTokensAsHtmlLiteral();
+
+                // Literal value
+                // 'quote' should be "Unknown" if not quoted and tokens coming from the tokenizer should never have
+                // "Unknown" type.
+                var valueTokens = ReadWhile(token =>
+                    // These three conditions find separators which break the attribute value into portions
+                    token.Kind != SyntaxKind.Whitespace &&
+                    token.Kind != SyntaxKind.NewLine &&
+                    token.Kind != SyntaxKind.Transition &&
+                    // This condition checks for the end of the attribute value (it repeats some of the checks above
+                    // but for now that's ok)
+                    !IsEndOfAttributeValue(quote, token));
+                AcceptToken(valueTokens);
+                var value = OutputTokensAsHtmlLiteral();
+
+                var literalAttributeValue = SyntaxFactory.HtmlLiteralAttributeValue(prefix, value);
+                builder.Add(literalAttributeValue);
             }
         }
 
@@ -715,7 +783,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 }
                 
                 if (node is HtmlAttributeBlockSyntax attributeBlock &&
-                    attributeBlock.Children.Count >= 2 &&
+                    attributeBlock.Value.Children.Count > 0 &&
                     IsTypeAttribute(attributeBlock))
                 {
                     typeAttribute = attributeBlock;
@@ -724,7 +792,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
             if (typeAttribute != null)
             {
-                var contentValues = typeAttribute.Children.Nodes
+                var contentValues = typeAttribute.Value.Children.Nodes
                     .OfType<HtmlTextLiteralSyntax>()
                     .Select(textLiteral => textLiteral.ToFullString());
 
@@ -739,12 +807,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
         private static bool IsTypeAttribute(HtmlAttributeBlockSyntax attributeBlock)
         {
-            if (!(attributeBlock.Children.Nodes.First() is HtmlTextLiteralSyntax attributeName))
+            if (attributeBlock.Name.TextTokens.Count == 0)
             {
                 return false;
             }
 
-            var trimmedStartContent = attributeName.ToFullString().TrimStart();
+            var trimmedStartContent = attributeBlock.Name.ToFullString().TrimStart();
             if (trimmedStartContent.StartsWith("type", StringComparison.OrdinalIgnoreCase) &&
                 (trimmedStartContent.Length == 4 ||
                 ValidAfterTypeAttributeNameCharacters.Contains(trimmedStartContent[4])))

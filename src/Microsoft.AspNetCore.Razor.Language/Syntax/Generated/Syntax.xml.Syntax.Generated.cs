@@ -429,6 +429,75 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
   }
 
+  internal sealed partial class HtmlCommentBlockSyntax : HtmlSyntaxNode
+  {
+    private SyntaxNode _children;
+
+    internal HtmlCommentBlockSyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public SyntaxList<RazorSyntaxNode> Children 
+    {
+        get
+        {
+            return new SyntaxList<RazorSyntaxNode>(GetRed(ref _children, 0));
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _children);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _children;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitHtmlCommentBlock(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitHtmlCommentBlock(this);
+    }
+
+    public HtmlCommentBlockSyntax Update(SyntaxList<RazorSyntaxNode> children)
+    {
+        if (children != Children)
+        {
+            var newNode = SyntaxFactory.HtmlCommentBlock(children);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public HtmlCommentBlockSyntax WithChildren(SyntaxList<RazorSyntaxNode> children)
+    {
+        return Update(children);
+    }
+
+    public HtmlCommentBlockSyntax AddChildren(params RazorSyntaxNode[] items)
+    {
+        return WithChildren(this.Children.AddRange(items));
+    }
+  }
+
   internal sealed partial class HtmlTagBlockSyntax : HtmlSyntaxNode
   {
     private SyntaxNode _children;
@@ -498,20 +567,29 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
   }
 
-  internal sealed partial class HtmlAttributeBlockSyntax : HtmlSyntaxNode
+  internal sealed partial class HtmlMinimizedAttributeBlockSyntax : HtmlSyntaxNode
   {
-    private SyntaxNode _children;
+    private HtmlTextLiteralSyntax _namePrefix;
+    private HtmlTextLiteralSyntax _name;
 
-    internal HtmlAttributeBlockSyntax(GreenNode green, SyntaxNode parent, int position)
+    internal HtmlMinimizedAttributeBlockSyntax(GreenNode green, SyntaxNode parent, int position)
         : base(green, parent, position)
     {
     }
 
-    public SyntaxList<RazorSyntaxNode> Children 
+    public HtmlTextLiteralSyntax NamePrefix 
     {
         get
         {
-            return new SyntaxList<RazorSyntaxNode>(GetRed(ref _children, 0));
+            return GetRedAtZero(ref _namePrefix);
+        }
+    }
+
+    public HtmlTextLiteralSyntax Name 
+    {
+        get
+        {
+            return GetRed(ref _name, 1);
         }
     }
 
@@ -519,7 +597,8 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     {
         switch (index)
         {
-            case 0: return GetRedAtZero(ref _children);
+            case 0: return GetRedAtZero(ref _namePrefix);
+            case 1: return GetRed(ref _name, 1);
             default: return null;
         }
     }
@@ -527,7 +606,154 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     {
         switch (index)
         {
-            case 0: return _children;
+            case 0: return _namePrefix;
+            case 1: return _name;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitHtmlMinimizedAttributeBlock(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitHtmlMinimizedAttributeBlock(this);
+    }
+
+    public HtmlMinimizedAttributeBlockSyntax Update(HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name)
+    {
+        if (namePrefix != NamePrefix || name != Name)
+        {
+            var newNode = SyntaxFactory.HtmlMinimizedAttributeBlock(namePrefix, name);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public HtmlMinimizedAttributeBlockSyntax WithNamePrefix(HtmlTextLiteralSyntax namePrefix)
+    {
+        return Update(namePrefix, _name);
+    }
+
+    public HtmlMinimizedAttributeBlockSyntax WithName(HtmlTextLiteralSyntax name)
+    {
+        return Update(_namePrefix, name);
+    }
+
+    public HtmlMinimizedAttributeBlockSyntax AddNamePrefixTextTokens(params SyntaxToken[] items)
+    {
+        var _namePrefix = this.NamePrefix ?? SyntaxFactory.HtmlTextLiteral();
+        return this.WithNamePrefix(_namePrefix.WithTextTokens(_namePrefix.TextTokens.AddRange(items)));
+    }
+
+    public HtmlMinimizedAttributeBlockSyntax AddNameTextTokens(params SyntaxToken[] items)
+    {
+        return this.WithName(this.Name.WithTextTokens(this.Name.TextTokens.AddRange(items)));
+    }
+  }
+
+  internal sealed partial class HtmlAttributeBlockSyntax : HtmlSyntaxNode
+  {
+    private HtmlTextLiteralSyntax _namePrefix;
+    private HtmlTextLiteralSyntax _name;
+    private HtmlTextLiteralSyntax _nameSuffix;
+    private SyntaxToken _equalsToken;
+    private HtmlTextLiteralSyntax _valuePrefix;
+    private HtmlMarkupBlockSyntax _value;
+    private HtmlTextLiteralSyntax _valueSuffix;
+
+    internal HtmlAttributeBlockSyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public HtmlTextLiteralSyntax NamePrefix 
+    {
+        get
+        {
+            return GetRedAtZero(ref _namePrefix);
+        }
+    }
+
+    public HtmlTextLiteralSyntax Name 
+    {
+        get
+        {
+            return GetRed(ref _name, 1);
+        }
+    }
+
+    public HtmlTextLiteralSyntax NameSuffix 
+    {
+        get
+        {
+            return GetRed(ref _nameSuffix, 2);
+        }
+    }
+
+    public SyntaxToken EqualsToken 
+    {
+        get
+        {
+            return GetRed(ref _equalsToken, 3);
+        }
+    }
+
+    public HtmlTextLiteralSyntax ValuePrefix 
+    {
+        get
+        {
+            return GetRed(ref _valuePrefix, 4);
+        }
+    }
+
+    public HtmlMarkupBlockSyntax Value 
+    {
+        get
+        {
+            return GetRed(ref _value, 5);
+        }
+    }
+
+    public HtmlTextLiteralSyntax ValueSuffix 
+    {
+        get
+        {
+            return GetRed(ref _valueSuffix, 6);
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _namePrefix);
+            case 1: return GetRed(ref _name, 1);
+            case 2: return GetRed(ref _nameSuffix, 2);
+            case 3: return GetRed(ref _equalsToken, 3);
+            case 4: return GetRed(ref _valuePrefix, 4);
+            case 5: return GetRed(ref _value, 5);
+            case 6: return GetRed(ref _valueSuffix, 6);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _namePrefix;
+            case 1: return _name;
+            case 2: return _nameSuffix;
+            case 3: return _equalsToken;
+            case 4: return _valuePrefix;
+            case 5: return _value;
+            case 6: return _valueSuffix;
             default: return null;
         }
     }
@@ -542,11 +768,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         visitor.VisitHtmlAttributeBlock(this);
     }
 
-    public HtmlAttributeBlockSyntax Update(SyntaxList<RazorSyntaxNode> children)
+    public HtmlAttributeBlockSyntax Update(HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name, HtmlTextLiteralSyntax nameSuffix, SyntaxToken equalsToken, HtmlTextLiteralSyntax valuePrefix, HtmlMarkupBlockSyntax value, HtmlTextLiteralSyntax valueSuffix)
     {
-        if (children != Children)
+        if (namePrefix != NamePrefix || name != Name || nameSuffix != NameSuffix || equalsToken != EqualsToken || valuePrefix != ValuePrefix || value != Value || valueSuffix != ValueSuffix)
         {
-            var newNode = SyntaxFactory.HtmlAttributeBlock(children);
+            var newNode = SyntaxFactory.HtmlAttributeBlock(namePrefix, name, nameSuffix, equalsToken, valuePrefix, value, valueSuffix);
             var annotations = GetAnnotations();
             if (annotations != null && annotations.Length > 0)
                return newNode.WithAnnotations(annotations);
@@ -556,31 +782,99 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         return this;
     }
 
-    public HtmlAttributeBlockSyntax WithChildren(SyntaxList<RazorSyntaxNode> children)
+    public HtmlAttributeBlockSyntax WithNamePrefix(HtmlTextLiteralSyntax namePrefix)
     {
-        return Update(children);
+        return Update(namePrefix, _name, _nameSuffix, _equalsToken, _valuePrefix, _value, _valueSuffix);
     }
 
-    public HtmlAttributeBlockSyntax AddChildren(params RazorSyntaxNode[] items)
+    public HtmlAttributeBlockSyntax WithName(HtmlTextLiteralSyntax name)
     {
-        return WithChildren(this.Children.AddRange(items));
+        return Update(_namePrefix, name, _nameSuffix, _equalsToken, _valuePrefix, _value, _valueSuffix);
+    }
+
+    public HtmlAttributeBlockSyntax WithNameSuffix(HtmlTextLiteralSyntax nameSuffix)
+    {
+        return Update(_namePrefix, _name, nameSuffix, _equalsToken, _valuePrefix, _value, _valueSuffix);
+    }
+
+    public HtmlAttributeBlockSyntax WithEqualsToken(SyntaxToken equalsToken)
+    {
+        return Update(_namePrefix, _name, _nameSuffix, equalsToken, _valuePrefix, _value, _valueSuffix);
+    }
+
+    public HtmlAttributeBlockSyntax WithValuePrefix(HtmlTextLiteralSyntax valuePrefix)
+    {
+        return Update(_namePrefix, _name, _nameSuffix, _equalsToken, valuePrefix, _value, _valueSuffix);
+    }
+
+    public HtmlAttributeBlockSyntax WithValue(HtmlMarkupBlockSyntax value)
+    {
+        return Update(_namePrefix, _name, _nameSuffix, _equalsToken, _valuePrefix, value, _valueSuffix);
+    }
+
+    public HtmlAttributeBlockSyntax WithValueSuffix(HtmlTextLiteralSyntax valueSuffix)
+    {
+        return Update(_namePrefix, _name, _nameSuffix, _equalsToken, _valuePrefix, _value, valueSuffix);
+    }
+
+    public HtmlAttributeBlockSyntax AddNamePrefixTextTokens(params SyntaxToken[] items)
+    {
+        var _namePrefix = this.NamePrefix ?? SyntaxFactory.HtmlTextLiteral();
+        return this.WithNamePrefix(_namePrefix.WithTextTokens(_namePrefix.TextTokens.AddRange(items)));
+    }
+
+    public HtmlAttributeBlockSyntax AddNameTextTokens(params SyntaxToken[] items)
+    {
+        return this.WithName(this.Name.WithTextTokens(this.Name.TextTokens.AddRange(items)));
+    }
+
+    public HtmlAttributeBlockSyntax AddNameSuffixTextTokens(params SyntaxToken[] items)
+    {
+        var _nameSuffix = this.NameSuffix ?? SyntaxFactory.HtmlTextLiteral();
+        return this.WithNameSuffix(_nameSuffix.WithTextTokens(_nameSuffix.TextTokens.AddRange(items)));
+    }
+
+    public HtmlAttributeBlockSyntax AddValuePrefixTextTokens(params SyntaxToken[] items)
+    {
+        var _valuePrefix = this.ValuePrefix ?? SyntaxFactory.HtmlTextLiteral();
+        return this.WithValuePrefix(_valuePrefix.WithTextTokens(_valuePrefix.TextTokens.AddRange(items)));
+    }
+
+    public HtmlAttributeBlockSyntax AddValueChildren(params RazorSyntaxNode[] items)
+    {
+        return this.WithValue(this.Value.WithChildren(this.Value.Children.AddRange(items)));
+    }
+
+    public HtmlAttributeBlockSyntax AddValueSuffixTextTokens(params SyntaxToken[] items)
+    {
+        var _valueSuffix = this.ValueSuffix ?? SyntaxFactory.HtmlTextLiteral();
+        return this.WithValueSuffix(_valueSuffix.WithTextTokens(_valueSuffix.TextTokens.AddRange(items)));
     }
   }
 
-  internal sealed partial class HtmlCommentBlockSyntax : HtmlSyntaxNode
+  internal sealed partial class HtmlLiteralAttributeValueSyntax : HtmlSyntaxNode
   {
-    private SyntaxNode _children;
+    private HtmlTextLiteralSyntax _prefix;
+    private HtmlTextLiteralSyntax _value;
 
-    internal HtmlCommentBlockSyntax(GreenNode green, SyntaxNode parent, int position)
+    internal HtmlLiteralAttributeValueSyntax(GreenNode green, SyntaxNode parent, int position)
         : base(green, parent, position)
     {
     }
 
-    public SyntaxList<RazorSyntaxNode> Children 
+    public HtmlTextLiteralSyntax Prefix 
     {
         get
         {
-            return new SyntaxList<RazorSyntaxNode>(GetRed(ref _children, 0));
+            return GetRedAtZero(ref _prefix);
+        }
+    }
+
+    public HtmlTextLiteralSyntax Value 
+    {
+        get
+        {
+            return GetRed(ref _value, 1);
         }
     }
 
@@ -588,7 +882,8 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     {
         switch (index)
         {
-            case 0: return GetRedAtZero(ref _children);
+            case 0: return GetRedAtZero(ref _prefix);
+            case 1: return GetRed(ref _value, 1);
             default: return null;
         }
     }
@@ -596,26 +891,27 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     {
         switch (index)
         {
-            case 0: return _children;
+            case 0: return _prefix;
+            case 1: return _value;
             default: return null;
         }
     }
 
     public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
     {
-        return visitor.VisitHtmlCommentBlock(this);
+        return visitor.VisitHtmlLiteralAttributeValue(this);
     }
 
     public override void Accept(SyntaxVisitor visitor)
     {
-        visitor.VisitHtmlCommentBlock(this);
+        visitor.VisitHtmlLiteralAttributeValue(this);
     }
 
-    public HtmlCommentBlockSyntax Update(SyntaxList<RazorSyntaxNode> children)
+    public HtmlLiteralAttributeValueSyntax Update(HtmlTextLiteralSyntax prefix, HtmlTextLiteralSyntax value)
     {
-        if (children != Children)
+        if (prefix != Prefix || value != Value)
         {
-            var newNode = SyntaxFactory.HtmlCommentBlock(children);
+            var newNode = SyntaxFactory.HtmlLiteralAttributeValue(prefix, value);
             var annotations = GetAnnotations();
             if (annotations != null && annotations.Length > 0)
                return newNode.WithAnnotations(annotations);
@@ -625,14 +921,116 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         return this;
     }
 
-    public HtmlCommentBlockSyntax WithChildren(SyntaxList<RazorSyntaxNode> children)
+    public HtmlLiteralAttributeValueSyntax WithPrefix(HtmlTextLiteralSyntax prefix)
     {
-        return Update(children);
+        return Update(prefix, _value);
     }
 
-    public HtmlCommentBlockSyntax AddChildren(params RazorSyntaxNode[] items)
+    public HtmlLiteralAttributeValueSyntax WithValue(HtmlTextLiteralSyntax value)
     {
-        return WithChildren(this.Children.AddRange(items));
+        return Update(_prefix, value);
+    }
+
+    public HtmlLiteralAttributeValueSyntax AddPrefixTextTokens(params SyntaxToken[] items)
+    {
+        var _prefix = this.Prefix ?? SyntaxFactory.HtmlTextLiteral();
+        return this.WithPrefix(_prefix.WithTextTokens(_prefix.TextTokens.AddRange(items)));
+    }
+
+    public HtmlLiteralAttributeValueSyntax AddValueTextTokens(params SyntaxToken[] items)
+    {
+        return this.WithValue(this.Value.WithTextTokens(this.Value.TextTokens.AddRange(items)));
+    }
+  }
+
+  internal sealed partial class HtmlDynamicAttributeValueSyntax : HtmlSyntaxNode
+  {
+    private HtmlTextLiteralSyntax _prefix;
+    private HtmlMarkupBlockSyntax _value;
+
+    internal HtmlDynamicAttributeValueSyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public HtmlTextLiteralSyntax Prefix 
+    {
+        get
+        {
+            return GetRedAtZero(ref _prefix);
+        }
+    }
+
+    public HtmlMarkupBlockSyntax Value 
+    {
+        get
+        {
+            return GetRed(ref _value, 1);
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _prefix);
+            case 1: return GetRed(ref _value, 1);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _prefix;
+            case 1: return _value;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitHtmlDynamicAttributeValue(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitHtmlDynamicAttributeValue(this);
+    }
+
+    public HtmlDynamicAttributeValueSyntax Update(HtmlTextLiteralSyntax prefix, HtmlMarkupBlockSyntax value)
+    {
+        if (prefix != Prefix || value != Value)
+        {
+            var newNode = SyntaxFactory.HtmlDynamicAttributeValue(prefix, value);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public HtmlDynamicAttributeValueSyntax WithPrefix(HtmlTextLiteralSyntax prefix)
+    {
+        return Update(prefix, _value);
+    }
+
+    public HtmlDynamicAttributeValueSyntax WithValue(HtmlMarkupBlockSyntax value)
+    {
+        return Update(_prefix, value);
+    }
+
+    public HtmlDynamicAttributeValueSyntax AddPrefixTextTokens(params SyntaxToken[] items)
+    {
+        var _prefix = this.Prefix ?? SyntaxFactory.HtmlTextLiteral();
+        return this.WithPrefix(_prefix.WithTextTokens(_prefix.TextTokens.AddRange(items)));
+    }
+
+    public HtmlDynamicAttributeValueSyntax AddValueChildren(params RazorSyntaxNode[] items)
+    {
+        return this.WithValue(this.Value.WithChildren(this.Value.Children.AddRange(items)));
     }
   }
 
