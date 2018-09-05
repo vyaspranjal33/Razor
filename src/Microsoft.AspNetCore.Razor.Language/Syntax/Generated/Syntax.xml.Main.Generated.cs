@@ -371,8 +371,8 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public override SyntaxNode VisitHtmlTransition(HtmlTransitionSyntax node)
     {
-      var transition = (SyntaxToken)VisitToken(node.Transition);
-      return node.Update(transition);
+      var transitionTokens = VisitList(node.TransitionTokens);
+      return node.Update(transitionTokens);
     }
 
     public override SyntaxNode VisitHtmlTextLiteral(HtmlTextLiteralSyntax node)
@@ -607,22 +607,15 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
 
     /// <summary>Creates a new HtmlTransitionSyntax instance.</summary>
-    public static HtmlTransitionSyntax HtmlTransition(SyntaxToken transition)
+    public static HtmlTransitionSyntax HtmlTransition(SyntaxList<SyntaxToken> transitionTokens)
     {
-      switch (transition.Kind)
-      {
-        case SyntaxKind.Transition:
-          break;
-        default:
-          throw new ArgumentException("transition");
-      }
-      return (HtmlTransitionSyntax)InternalSyntax.SyntaxFactory.HtmlTransition((Syntax.InternalSyntax.SyntaxToken)transition.Green).CreateRed();
+      return (HtmlTransitionSyntax)InternalSyntax.SyntaxFactory.HtmlTransition(transitionTokens.Node.ToGreenList<InternalSyntax.SyntaxToken>()).CreateRed();
     }
 
     /// <summary>Creates a new HtmlTransitionSyntax instance.</summary>
     public static HtmlTransitionSyntax HtmlTransition()
     {
-      return SyntaxFactory.HtmlTransition(SyntaxFactory.Token(SyntaxKind.Transition));
+      return SyntaxFactory.HtmlTransition(default(SyntaxList<SyntaxToken>));
     }
 
     /// <summary>Creates a new HtmlTextLiteralSyntax instance.</summary>

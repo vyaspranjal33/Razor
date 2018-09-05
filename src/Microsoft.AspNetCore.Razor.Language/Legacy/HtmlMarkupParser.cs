@@ -418,6 +418,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                             Accept(_bufferedOpenAngle);
                             EndTagBlock(tags, complete: false);
                         }
+                        else if (atSpecialTag && At(SyntaxKind.Bang))
+                        {
+                            Accept(_bufferedOpenAngle);
+                            complete = BangTag();
+                        }
                         else
                         {
                             complete = AfterTagStart(tagStart, tags, atSpecialTag, tagBlockWrapper);
@@ -460,17 +465,17 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                     case SyntaxKind.ForwardSlash:
                         // End Tag
                         return EndTag(tagStart, tags, tagBlockWrapper);
-                    case SyntaxKind.Bang:
-                        // Comment, CDATA, DOCTYPE, or a parser-escaped HTML tag.
-                        if (atSpecialTag)
-                        {
-                            Accept(_bufferedOpenAngle);
-                            return BangTag();
-                        }
-                        else
-                        {
-                            goto default;
-                        }
+                    //case SyntaxKind.Bang:
+                    //    // Comment, CDATA, DOCTYPE, or a parser-escaped HTML tag.
+                    //    if (atSpecialTag)
+                    //    {
+                    //        Accept(_bufferedOpenAngle);
+                    //        return BangTag();
+                    //    }
+                    //    else
+                    //    {
+                    //        goto default;
+                    //    }
                     case SyntaxKind.QuestionMark:
                         // XML PI
                         Accept(_bufferedOpenAngle);
@@ -732,7 +737,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                     tagName = CurrentToken.Content;
                 }
 
-                var matched = RemoveTag(tags, tagName, tagStart);
+                var matched = RemoveTag1(tags, tagName, tagStart);
 
                 if (tags.Count == 0 &&
                     // Note tagName may contain a '!' escape character. This ensures </!text> doesn't match here.
@@ -754,7 +759,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
         }
 
-        private void RecoverTextTag()
+        private void RecoverTextTag1()
         {
             // We don't want to skip-to and parse because there shouldn't be anything in the body of text tags.
             AcceptUntil(SyntaxKind.CloseAngle, SyntaxKind.NewLine);
@@ -781,7 +786,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                         new SourceSpan(textLocation, contentLength: 4 /* text */)));
 
                 Span.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.Any;
-                RecoverTextTag();
+                RecoverTextTag1();
             }
             else
             {
@@ -1236,7 +1241,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                         RazorDiagnosticFactory.CreateParsing_TextTagCannotContainAttributes(
                             new SourceSpan(textLocation, contentLength: 4 /* text */)));
 
-                    RecoverTextTag();
+                    RecoverTextTag1();
                 }
                 else
                 {
@@ -1465,7 +1470,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             return false;
         }
 
-        private bool RemoveTag(Stack<Tuple<SyntaxToken, SourceLocation>> tags, string tagName, SourceLocation tagStart)
+        private bool RemoveTag1(Stack<Tuple<SyntaxToken, SourceLocation>> tags, string tagName, SourceLocation tagStart)
         {
             Tuple<SyntaxToken, SourceLocation> currentTag = null;
             while (tags.Count > 0)

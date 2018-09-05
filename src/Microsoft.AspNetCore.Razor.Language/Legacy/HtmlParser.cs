@@ -973,7 +973,8 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
         private void ParseTagBlock(in SyntaxListBuilder<RazorSyntaxNode> builder, Stack<Tuple<SyntaxToken, SourceLocation>> tags)
         {
             // Skip Whitespace and Text
-            var complete = false;
+            var completeTag = false;
+            var blockAlreadyBuilt = false;
             do
             {
                 SkipToAndParseCode(builder, SyntaxKind.OpenAngle);
@@ -986,22 +987,19 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 IDisposable disposableTagBuilder = null;
                 try
                 {
-                    var atSpecialTag = AtSpecialTag;
-
-                    if (!EndOfFile && !atSpecialTag)
-                    {
-                        // Start a tag block.  This is used to wrap things like <p> or <a class="btn"> etc.
-                        var pooledResult = Pool.Allocate<RazorSyntaxNode>();
-                        disposableTagBuilder = pooledResult;
-                        tagBuilder = pooledResult.Builder;
-                    }
-
                     if (EndOfFile)
                     {
                         EndTagBlock(builder, tags, complete: true);
                     }
                     else
                     {
+                        if (!AtSpecialTag)
+                        {
+                            // Start a tag block.  This is used to wrap things like <p> or <a class="btn"> etc.
+                            var pooledResult = Pool.Allocate<RazorSyntaxNode>();
+                            disposableTagBuilder = pooledResult;
+                            tagBuilder = pooledResult.Builder;
+                        }
                         _bufferedOpenAngle = null;
                         _lastTagStart = CurrentStart;
                         Assert(SyntaxKind.OpenAngle);
@@ -1010,22 +1008,39 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                         if (!NextToken())
                         {
                             AcceptToken(_bufferedOpenAngle);
-                            EndTagBlock(builder, tags, complete: false);
+                            EndTagBlock(tagBuilder, tags, complete: false);
+                        }
+                        else if (AtSpecialTag && At(SyntaxKind.Bang))
+                        {
+                            AcceptToken(_bufferedOpenAngle);
+                            completeTag = ParseBangTag(builder);
                         }
                         else
                         {
-                            complete = ParseAfterTagStart(tagBuilder, builder, tagStart, tags, atSpecialTag);
+                            var result = ParseAfterTagStart(tagBuilder, builder, tagStart, tags);
+                            completeTag = result.Item1;
+                            blockAlreadyBuilt = result.Item2;
                         }
                     }
 
-                    if (complete)
+                    if (completeTag)
                     {
                         // Completed tags have no accepted characters inside of blocks.
                         SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
                     }
 
-                    // Output the contents of the tag into its own markup span.
-                    builder.Add(OutputTokensAsHtmlLiteral());
+                    if (blockAlreadyBuilt)
+                    {
+                        // Output the contents of the tag into its own markup span.
+                        builder.Add(OutputTokensAsHtmlLiteral());
+                    }
+                    else
+                    {
+                        // Output the contents of the tag into its own markup span.
+                        tagBuilder.Add(OutputTokensAsHtmlLiteral());
+                        var tagBlock = SyntaxFactory.HtmlTagBlock(tagBuilder.ToList());
+                        builder.Add(tagBlock);
+                    }
                 }
                 finally
                 {
@@ -1039,18 +1054,400 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
             while (tags.Count > 0);
 
-            EndTagBlock(tags, complete);
+            EndTagBlock(builder, tags, completeTag);
         }
 
-        private bool ParseAfterTagStart(
+        private Tuple<bool, bool> ParseAfterTagStart(
             in SyntaxListBuilder<RazorSyntaxNode> builder,
             in SyntaxListBuilder<RazorSyntaxNode> parentBuilder,
             SourceLocation tagStart,
-            Stack<Tuple<SyntaxToken, SourceLocation>> tags,
-            bool atSpecialTag)
+            Stack<Tuple<SyntaxToken, SourceLocation>> tags)
         {
-            // TODO
+            var blockAlreadyBuilt = false;
+            if (!EndOfFile)
+            {
+                switch (CurrentToken.Kind)
+                {
+                    case SyntaxKind.ForwardSlash:
+                        // End Tag
+                        return ParseEndTag(builder, parentBuilder, tagStart, tags);
+                    case SyntaxKind.QuestionMark:
+                        // XML PI
+                        AcceptToken(_bufferedOpenAngle);
+                        return Tuple.Create(TryParseXmlPI(), blockAlreadyBuilt);
+                    default:
+                        // Start Tag
+                        return ParseStartTag(builder, parentBuilder, tags);
+                }
+            }
+            if (tags.Count == 0)
+            {
+                Context.ErrorSink.OnError(
+                    RazorDiagnosticFactory.CreateParsing_OuterTagMissingName(
+                        new SourceSpan(CurrentStart, contentLength: 1 /* end of file */)));
+            }
+
+            return Tuple.Create(false, blockAlreadyBuilt);
+        }
+
+        private Tuple<bool, bool> ParseStartTag(
+            in SyntaxListBuilder<RazorSyntaxNode> builder,
+            in SyntaxListBuilder<RazorSyntaxNode> parentBuilder,
+            Stack<Tuple<SyntaxToken, SourceLocation>> tags)
+        {
+            SyntaxToken bangToken = null;
+            SyntaxToken potentialTagNameToken;
+
+            if (At(SyntaxKind.Bang))
+            {
+                bangToken = CurrentToken;
+
+                potentialTagNameToken = Lookahead(count: 1);
+            }
+            else
+            {
+                potentialTagNameToken = CurrentToken;
+            }
+
+            SyntaxToken tagName;
+
+            if (potentialTagNameToken == null || potentialTagNameToken.Kind != SyntaxKind.Text)
+            {
+                tagName = SyntaxFactory.Token(SyntaxKind.Unknown, string.Empty);
+            }
+            else if (bangToken != null)
+            {
+                tagName = SyntaxFactory.Token(SyntaxKind.Text, "!" + potentialTagNameToken.Content);
+            }
+            else
+            {
+                tagName = potentialTagNameToken;
+            }
+
+            var tag = Tuple.Create(tagName, _lastTagStart);
+
+            if (tags.Count == 0 &&
+                // Note tagName may contain a '!' escape character. This ensures <!text> doesn't match here.
+                // <!text> tags are treated like any other escaped HTML start tag.
+                string.Equals(tag.Item1.Content, SyntaxConstants.TextTagName, StringComparison.OrdinalIgnoreCase))
+            {
+                builder.Add(OutputTokensAsHtmlLiteral());
+                SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
+
+                AcceptToken(_bufferedOpenAngle);
+                var textLocation = CurrentStart;
+                Assert(SyntaxKind.Text);
+
+                AcceptTokenAndMoveNext();
+
+                var bookmark = CurrentStart.AbsoluteIndex;
+                var tokens = ReadWhile(IsSpacingToken(includeNewLines: true));
+                var empty = At(SyntaxKind.ForwardSlash);
+                if (empty)
+                {
+                    AcceptToken(tokens);
+                    Assert(SyntaxKind.ForwardSlash);
+                    AcceptTokenAndMoveNext();
+                    bookmark = CurrentStart.AbsoluteIndex;
+                    tokens = ReadWhile(IsSpacingToken(includeNewLines: true));
+                }
+
+                if (!OptionalToken(SyntaxKind.CloseAngle))
+                {
+                    Context.Source.Position = bookmark;
+                    NextToken();
+                    Context.ErrorSink.OnError(
+                        RazorDiagnosticFactory.CreateParsing_TextTagCannotContainAttributes(
+                            new SourceSpan(textLocation, contentLength: 4 /* text */)));
+
+                    RecoverTextTag();
+                }
+                else
+                {
+                    AcceptToken(tokens);
+                    SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+                }
+
+                if (!empty)
+                {
+                    tags.Push(tag);
+                }
+
+                var transition = GetNodeWithSpanContext(SyntaxFactory.HtmlTransition(OutputTokens()));
+                builder.Add(transition);
+                var tagBlock = SyntaxFactory.HtmlTagBlock(builder.ToList());
+                parentBuilder.Add(tagBlock);
+
+                return Tuple.Create(true, true);
+            }
+
+            AcceptToken(_bufferedOpenAngle);
+            ParseOptionalBangEscape(builder);
+            OptionalToken(SyntaxKind.Text);
+            return ParseRestOfTag(builder, parentBuilder, tag, tags);
+        }
+
+        private Tuple<bool, bool> ParseRestOfTag(
+            in SyntaxListBuilder<RazorSyntaxNode> builder,
+            in SyntaxListBuilder<RazorSyntaxNode> parentBuilder,
+            Tuple<SyntaxToken, SourceLocation> tag,
+            Stack<Tuple<SyntaxToken, SourceLocation>> tags)
+        {
+            var blockAlreadyBuilt = false;
+            ParseTagContent(builder);
+
+            // We are now at a possible end of the tag
+            // Found '<', so we just abort this tag.
+            if (At(SyntaxKind.OpenAngle))
+            {
+                return Tuple.Create(false, blockAlreadyBuilt);
+            }
+
+            var isEmpty = At(SyntaxKind.ForwardSlash);
+            // Found a solidus, so don't accept it but DON'T push the tag to the stack
+            if (isEmpty)
+            {
+                AcceptTokenAndMoveNext();
+            }
+
+            // Check for the '>' to determine if the tag is finished
+            var seenClose = OptionalToken(SyntaxKind.CloseAngle);
+            if (!seenClose)
+            {
+                Context.ErrorSink.OnError(
+                    RazorDiagnosticFactory.CreateParsing_UnfinishedTag(
+                        new SourceSpan(
+                            SourceLocationTracker.Advance(tag.Item2, "<"),
+                            Math.Max(tag.Item1.Content.Length, 1)),
+                        tag.Item1.Content));
+            }
+            else
+            {
+                if (!isEmpty)
+                {
+                    // Is this a void element?
+                    var tagName = tag.Item1.Content.Trim();
+                    if (VoidElements.Contains(tagName))
+                    {
+                        SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+                        builder.Add(OutputTokensAsHtmlLiteral());
+                        var tagBlock = SyntaxFactory.HtmlTagBlock(builder.ToList());
+                        parentBuilder.Add(tagBlock);
+                        blockAlreadyBuilt = true;
+
+                        // Technically, void elements like "meta" are not allowed to have end tags. Just in case they do,
+                        // we need to look ahead at the next set of tokens. If we see "<", "/", tag name, accept it and the ">" following it
+                        // Place a bookmark
+                        var bookmark = CurrentStart.AbsoluteIndex;
+
+                        // Skip whitespace
+                        var whiteSpace = ReadWhile(IsSpacingToken(includeNewLines: true));
+
+                        // Open Angle
+                        if (At(SyntaxKind.OpenAngle) && NextIs(SyntaxKind.ForwardSlash))
+                        {
+                            var openAngle = CurrentToken;
+                            NextToken();
+                            Assert(SyntaxKind.ForwardSlash);
+                            var solidus = CurrentToken;
+                            NextToken();
+                            if (At(SyntaxKind.Text) && string.Equals(CurrentToken.Content, tagName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Accept up to here
+                                AcceptToken(whiteSpace);
+                                parentBuilder.Add(OutputTokensAsHtmlLiteral()); // Output the whitespace
+
+                                using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
+                                {
+                                    var tagBuilder = pooledResult.Builder;
+                                    AcceptToken(openAngle);
+                                    AcceptToken(solidus);
+                                    AcceptTokenAndMoveNext();
+
+                                    // Accept to '>', '<' or EOF
+                                    AcceptTokenUntil(SyntaxKind.CloseAngle, SyntaxKind.OpenAngle);
+                                    // Accept the '>' if we saw it. And if we do see it, we're complete
+                                    var complete = OptionalToken(SyntaxKind.CloseAngle);
+
+                                    if (complete)
+                                    {
+                                        SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+                                    }
+
+                                    // Output the closing void element
+                                    tagBuilder.Add(OutputTokensAsHtmlLiteral());
+                                    parentBuilder.Add(SyntaxFactory.HtmlTagBlock(tagBuilder.ToList()));
+
+                                    return Tuple.Create(complete, blockAlreadyBuilt);
+                                }
+                            }
+                        }
+
+                        // Go back to the bookmark and just finish this tag at the close angle
+                        Context.Source.Position = bookmark;
+                        NextToken();
+                    }
+                    else if (string.Equals(tagName, ScriptTagName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!CurrentScriptTagExpectsHtml(builder))
+                        {
+                            SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+                            builder.Add(OutputTokensAsHtmlLiteral());
+                            var tagBlock = SyntaxFactory.HtmlTagBlock(builder.ToList());
+                            parentBuilder.Add(tagBlock);
+                            blockAlreadyBuilt = true;
+
+                            SkipToEndScriptAndParseCode(parentBuilder, endTagAcceptedCharacters: AcceptedCharactersInternal.None);
+                        }
+                        else
+                        {
+                            // Push the script tag onto the tag stack, it should be treated like all other HTML tags.
+                            tags.Push(tag);
+                        }
+                    }
+                    else
+                    {
+                        // Push the tag on to the stack
+                        tags.Push(tag);
+                    }
+                }
+            }
+            return Tuple.Create(seenClose, blockAlreadyBuilt);
+        }
+
+        private Tuple<bool, bool> ParseEndTag(
+            in SyntaxListBuilder<RazorSyntaxNode> builder,
+            in SyntaxListBuilder<RazorSyntaxNode> parentBuilder,
+            SourceLocation tagStart,
+            Stack<Tuple<SyntaxToken, SourceLocation>> tags)
+        {
+            // Accept "/" and move next
+            Assert(SyntaxKind.ForwardSlash);
+            var forwardSlash = CurrentToken;
+            if (!NextToken())
+            {
+                AcceptToken(_bufferedOpenAngle);
+                AcceptToken(forwardSlash);
+                return Tuple.Create(false, false);
+            }
+            else
+            {
+                var tagName = string.Empty;
+                SyntaxToken bangToken = null;
+
+                if (At(SyntaxKind.Bang))
+                {
+                    bangToken = CurrentToken;
+
+                    var nextToken = Lookahead(count: 1);
+
+                    if (nextToken != null && nextToken.Kind == SyntaxKind.Text)
+                    {
+                        tagName = "!" + nextToken.Content;
+                    }
+                }
+                else if (At(SyntaxKind.Text))
+                {
+                    tagName = CurrentToken.Content;
+                }
+
+                var matched = RemoveTag(tags, tagName, tagStart);
+
+                if (tags.Count == 0 &&
+                    // Note tagName may contain a '!' escape character. This ensures </!text> doesn't match here.
+                    // </!text> tags are treated like any other escaped HTML end tag.
+                    string.Equals(tagName, SyntaxConstants.TextTagName, StringComparison.OrdinalIgnoreCase) &&
+                    matched)
+                {
+                    return EndTextTag(builder, parentBuilder, forwardSlash);
+                }
+                AcceptToken(_bufferedOpenAngle);
+                AcceptToken(forwardSlash);
+
+                ParseOptionalBangEscape(builder);
+
+                AcceptTokenUntil(SyntaxKind.CloseAngle);
+
+                // Accept the ">"
+                return Tuple.Create(OptionalToken(SyntaxKind.CloseAngle), false);
+            }
+        }
+
+        private Tuple<bool, bool> EndTextTag(
+            in SyntaxListBuilder<RazorSyntaxNode> builder,
+            in SyntaxListBuilder<RazorSyntaxNode> parentBuilder,
+            SyntaxToken solidus)
+        {
+            AcceptToken(_bufferedOpenAngle);
+            AcceptToken(solidus);
+
+            var textLocation = CurrentStart;
+            Assert(SyntaxKind.Text);
+            AcceptTokenAndMoveNext();
+
+            var seenCloseAngle = OptionalToken(SyntaxKind.CloseAngle);
+
+            if (!seenCloseAngle)
+            {
+                Context.ErrorSink.OnError(
+                    RazorDiagnosticFactory.CreateParsing_TextTagCannotContainAttributes(
+                        new SourceSpan(textLocation, contentLength: 4 /* text */)));
+
+                SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.Any;
+                RecoverTextTag();
+            }
+            else
+            {
+                SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+            }
+
+            SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
+
+            var transition = GetNodeWithSpanContext(SyntaxFactory.HtmlTransition(OutputTokens()));
+            builder.Add(transition);
+            var tagBlock = SyntaxFactory.HtmlTagBlock(builder.ToList());
+            parentBuilder.Add(tagBlock);
+
+            return Tuple.Create(seenCloseAngle, true);
+        }
+
+        private bool RemoveTag(Stack<Tuple<SyntaxToken, SourceLocation>> tags, string tagName, SourceLocation tagStart)
+        {
+            Tuple<SyntaxToken, SourceLocation> currentTag = null;
+            while (tags.Count > 0)
+            {
+                currentTag = tags.Pop();
+                if (string.Equals(tagName, currentTag.Item1.Content, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Matched the tag
+                    return true;
+                }
+            }
+            if (currentTag != null)
+            {
+                Context.ErrorSink.OnError(
+                    RazorDiagnosticFactory.CreateParsing_MissingEndTag(
+                        new SourceSpan(
+                            SourceLocationTracker.Advance(currentTag.Item2, "<"),
+                            currentTag.Item1.Content.Length),
+                        currentTag.Item1.Content));
+            }
+            else
+            {
+                Context.ErrorSink.OnError(
+                    RazorDiagnosticFactory.CreateParsing_UnexpectedEndTag(
+                        new SourceSpan(SourceLocationTracker.Advance(tagStart, "</"), tagName.Length), tagName));
+            }
             return false;
+        }
+
+        private void RecoverTextTag()
+        {
+            // We don't want to skip-to and parse because there shouldn't be anything in the body of text tags.
+            AcceptTokenUntil(SyntaxKind.CloseAngle, SyntaxKind.NewLine);
+
+            // Include the close angle in the text tag block if it's there, otherwise just move on
+            OptionalToken(SyntaxKind.CloseAngle);
         }
 
         private void EndTagBlock(
@@ -1058,7 +1455,69 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             Stack<Tuple<SyntaxToken, SourceLocation>> tags,
             bool complete)
         {
-            // TODO
+            if (tags.Count > 0)
+            {
+                // Ended because of EOF, not matching close tag.  Throw error for last tag
+                while (tags.Count > 1)
+                {
+                    tags.Pop();
+                }
+                var tag = tags.Pop();
+                Context.ErrorSink.OnError(
+                    RazorDiagnosticFactory.CreateParsing_MissingEndTag(
+                        new SourceSpan(
+                            SourceLocationTracker.Advance(tag.Item2, "<"),
+                            tag.Item1.Content.Length),
+                        tag.Item1.Content));
+            }
+            else if (complete)
+            {
+                SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+            }
+            tags.Clear();
+            if (!Context.DesignTimeMode)
+            {
+                var shouldAcceptWhitespaceAndNewLine = true;
+
+                // Check if the previous span was a transition.
+                if (builder[builder.Count - 1].Kind == SyntaxKind.HtmlTransition)
+                {
+                    var tokens = ReadWhile(
+                        f => (f.Kind == SyntaxKind.Whitespace) || (f.Kind == SyntaxKind.NewLine));
+
+                    // Make sure the current token is not markup, which can be html start tag or @:
+                    if (!(At(SyntaxKind.OpenAngle) ||
+                        (At(SyntaxKind.Transition) && Lookahead(count: 1).Content.StartsWith(":"))))
+                    {
+                        // Don't accept whitespace as markup if the end text tag is followed by csharp.
+                        shouldAcceptWhitespaceAndNewLine = false;
+                    }
+
+                    PutCurrentBack();
+                    PutBack(tokens);
+                    EnsureCurrent();
+                }
+
+                if (shouldAcceptWhitespaceAndNewLine)
+                {
+                    // Accept whitespace and a single newline if present
+                    AcceptTokenWhile(SyntaxKind.Whitespace);
+                    OptionalToken(SyntaxKind.NewLine);
+                }
+            }
+            else if (SpanContext.EditHandler.AcceptedCharacters == AcceptedCharactersInternal.Any)
+            {
+                AcceptTokenWhile(SyntaxKind.Whitespace);
+                OptionalToken(SyntaxKind.NewLine);
+            }
+            PutCurrentBack();
+
+            if (!complete)
+            {
+                AddMarkerTokenIfNecessary();
+            }
+
+            builder.Add(OutputTokensAsHtmlLiteral());
         }
 
         private void DefaultMarkupSpanContext(SpanContextBuilder spanContext)

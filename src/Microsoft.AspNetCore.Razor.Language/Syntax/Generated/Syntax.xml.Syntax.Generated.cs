@@ -224,18 +224,18 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
   internal sealed partial class HtmlTransitionSyntax : HtmlSyntaxNode
   {
-    private SyntaxToken _transition;
+    private SyntaxNode _transitionTokens;
 
     internal HtmlTransitionSyntax(GreenNode green, SyntaxNode parent, int position)
         : base(green, parent, position)
     {
     }
 
-    public SyntaxToken Transition 
+    public SyntaxList<SyntaxToken> TransitionTokens 
     {
         get
         {
-            return GetRedAtZero(ref _transition);
+            return new SyntaxList<SyntaxToken>(GetRed(ref _transitionTokens, 0));
         }
     }
 
@@ -243,7 +243,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     {
         switch (index)
         {
-            case 0: return GetRedAtZero(ref _transition);
+            case 0: return GetRedAtZero(ref _transitionTokens);
             default: return null;
         }
     }
@@ -251,7 +251,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     {
         switch (index)
         {
-            case 0: return _transition;
+            case 0: return _transitionTokens;
             default: return null;
         }
     }
@@ -266,11 +266,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         visitor.VisitHtmlTransition(this);
     }
 
-    public HtmlTransitionSyntax Update(SyntaxToken transition)
+    public HtmlTransitionSyntax Update(SyntaxList<SyntaxToken> transitionTokens)
     {
-        if (transition != Transition)
+        if (transitionTokens != TransitionTokens)
         {
-            var newNode = SyntaxFactory.HtmlTransition(transition);
+            var newNode = SyntaxFactory.HtmlTransition(transitionTokens);
             var annotations = GetAnnotations();
             if (annotations != null && annotations.Length > 0)
                return newNode.WithAnnotations(annotations);
@@ -280,9 +280,14 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         return this;
     }
 
-    public HtmlTransitionSyntax WithTransition(SyntaxToken transition)
+    public HtmlTransitionSyntax WithTransitionTokens(SyntaxList<SyntaxToken> transitionTokens)
     {
-        return Update(transition);
+        return Update(transitionTokens);
+    }
+
+    public HtmlTransitionSyntax AddTransitionTokens(params SyntaxToken[] items)
+    {
+        return WithTransitionTokens(this.TransitionTokens.AddRange(items));
     }
   }
 

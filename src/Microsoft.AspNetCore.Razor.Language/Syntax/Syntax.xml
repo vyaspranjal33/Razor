@@ -32,9 +32,7 @@
   <AbstractNode Name="HtmlSyntaxNode" Base="RazorSyntaxNode" />
   <Node Name="HtmlTransitionSyntax" Base="HtmlSyntaxNode">
     <Kind Name="HtmlTransition" />
-    <Field Name="Transition" Type="SyntaxToken">
-      <Kind Name="Transition" />
-    </Field>
+    <Field Name="TransitionTokens" Type="SyntaxList&lt;SyntaxToken&gt;" />
   </Node>
   <Node Name="HtmlTextLiteralSyntax" Base="HtmlSyntaxNode">
     <Kind Name="HtmlTextLiteral" />
