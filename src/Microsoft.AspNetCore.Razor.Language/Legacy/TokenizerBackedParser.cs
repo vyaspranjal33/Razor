@@ -994,7 +994,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
         protected internal void AcceptMarkerTokenIfNecessary()
         {
-            if (TokenBuilder.Count == 0 && SpanContext.LastAcceptedCharacters != AcceptedCharactersInternal.Any)
+            if (TokenBuilder.Count == 0 && Context.LastAcceptedCharacters != AcceptedCharactersInternal.Any)
             {
                 AcceptToken(Language.CreateMarkerToken());
             }
@@ -1028,6 +1028,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
         protected TNode GetNodeWithSpanContext<TNode>(TNode node) where TNode : Syntax.GreenNode
         {
             var spanContext = SpanContext.Build();
+            Context.LastAcceptedCharacters = spanContext.EditHandler.AcceptedCharacters;
             InitializeContext(SpanContext);
             var annotation = new Syntax.SyntaxAnnotation(SyntaxConstants.SpanContextKind, spanContext);
 

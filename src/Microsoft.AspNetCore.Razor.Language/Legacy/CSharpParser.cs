@@ -78,11 +78,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                     }
                     else if (At(SyntaxKind.Identifier))
                     {
-                        if (TryParseDirective(builder, transition, CurrentToken.Content))
-                        {
-                            
-                        }
-                        else
+                        if (!TryParseDirective(builder, transition, CurrentToken.Content))
                         {
                             if (string.Equals(
                                 CurrentToken.Content,
@@ -102,12 +98,10 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                     }
                     else if (At(SyntaxKind.Keyword))
                     {
-                        if (TryParseDirective(builder, transition, CurrentToken.Content))
+                        if (!TryParseDirective(builder, transition, CurrentToken.Content) &&
+                            !TryParseKeyword(builder, transition))
                         {
-                            
-                        }
-                        else if (!TryParseKeyword(builder, transition))
-                        {
+                            // Not a directive or a special keyword. Just parse as an implicit expression.
                             var implicitExpressionBody = ParseImplicitExpressionBody();
                             var implicitExpression = SyntaxFactory.CSharpImplicitExpression(transition, implicitExpressionBody);
                             builder.Add(implicitExpression);
@@ -362,11 +356,27 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             Assert(SyntaxKind.LeftBrace);
             block = block ?? new Block(Resources.BlockName_Code, CurrentStart);
             var leftBrace = GetExpectedToken(SyntaxKind.LeftBrace);
-            // Set up auto-complete and parse the code block
-            SpanContext.EditHandler = new AutoCompleteEditHandler(Language.TokenizeString);
-            var codeBlock = ParseCodeBlock(block);
+            CSharpCodeBlockSyntax codeBlock = null;
+            using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
+            {
+                var builder = pooledResult.Builder;
+                // Set up auto-complete and parse the code block
+                var editHandler = new AutoCompleteEditHandler(Language.TokenizeString);
+                SpanContext.EditHandler = editHandler;
+                ParseCodeBlock(builder, block, acceptTerminatingBrace: false);
 
-            EnsureCurrent();
+                EnsureCurrent();
+                SpanContext.ChunkGenerator = new StatementChunkGenerator();
+                AcceptMarkerTokenIfNecessary();
+                if (!At(SyntaxKind.RightBrace))
+                {
+                    editHandler.AutoCompleteString = "}";
+                }
+                builder.Add(OutputTokensAsStatementLiteral());
+
+                codeBlock = SyntaxFactory.CSharpCodeBlock(builder.ToList());
+            }
+
             SyntaxToken rightBrace = null;
             if (At(SyntaxKind.RightBrace))
             {
@@ -390,36 +400,28 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             return SyntaxFactory.CSharpStatementBody(OutputAsMetaCode(leftBrace), codeBlock, OutputAsMetaCode(rightBrace));
         }
 
-        private CSharpCodeBlockSyntax ParseCodeBlock(Block block)
+        private void ParseCodeBlock(in SyntaxListBuilder<RazorSyntaxNode> builder, Block block, bool acceptTerminatingBrace = true)
         {
-            using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
+            EnsureCurrent();
+            while (!EndOfFile && !At(SyntaxKind.RightBrace))
             {
-                var builder = pooledResult.Builder;
+                // Parse a statement, then return here
+                ParseStatement(builder, block: block);
                 EnsureCurrent();
-                while (!EndOfFile && !At(SyntaxKind.RightBrace))
-                {
-                    // Parse a statement, then return here
-                    ParseStatement(builder, block: block);
-                    EnsureCurrent();
-                }
+            }
 
-                if (EndOfFile)
-                {
-                    Context.ErrorSink.OnError(
-                        RazorDiagnosticFactory.CreateParsing_ExpectedEndOfBlockBeforeEOF(
-                            new SourceSpan(block.Start, contentLength: 1 /* { OR } */), block.Name, "}", "{"));
-                }
+            if (EndOfFile)
+            {
+                Context.ErrorSink.OnError(
+                    RazorDiagnosticFactory.CreateParsing_ExpectedEndOfBlockBeforeEOF(
+                        new SourceSpan(block.Start, contentLength: 1 /* { OR } */), block.Name, "}", "{"));
+            }
 
-                SpanContext.ChunkGenerator = new StatementChunkGenerator();
-                AcceptMarkerTokenIfNecessary();
-                if (!At(SyntaxKind.RightBrace) && SpanContext.EditHandler is AutoCompleteEditHandler editHandler)
-                {
-                    editHandler.AutoCompleteString = "}";
-                }
-                builder.Add(OutputTokensAsStatementLiteral());
-
-                var codeBlock = SyntaxFactory.CSharpCodeBlock(builder.ToList());
-                return codeBlock;
+            if (acceptTerminatingBrace)
+            {
+                Assert(SyntaxKind.RightBrace);
+                SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
+                AcceptTokenAndMoveNext();
             }
         }
 
@@ -510,8 +512,10 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                         break;
                     case SyntaxKind.LeftBrace:
                         // Verbatim Block
-                        var statementBody = ParseStatementBody(block);
-                        builder.Add(statementBody);
+                        //var statementBody = ParseStatementBody(block);
+                        //builder.Add(statementBody);
+                        AcceptTokenAndMoveNext();
+                        ParseCodeBlock(builder, block);
                         break;
                     case SyntaxKind.Keyword:
                         if (!TryParseKeyword(builder, transition: null))
@@ -1454,6 +1458,9 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             if (TryParseCondition(builder))
             {
                 AcceptTokenWhile(IsSpacingToken(includeNewLines: true, includeComments: true));
+
+                builder.Add(OutputTokensAsStatementLiteral());
+
                 ParseExpectedCodeBlock(builder, block);
             }
         }
@@ -1939,7 +1946,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
         protected void CompleteBlock(bool insertMarkerIfNecessary, bool captureWhitespaceToEndOfLine)
         {
-            if (insertMarkerIfNecessary && SpanContext.LastAcceptedCharacters != AcceptedCharactersInternal.Any)
+            if (insertMarkerIfNecessary && Context.LastAcceptedCharacters != AcceptedCharactersInternal.Any)
             {
                 AcceptMarkerTokenIfNecessary();
             }

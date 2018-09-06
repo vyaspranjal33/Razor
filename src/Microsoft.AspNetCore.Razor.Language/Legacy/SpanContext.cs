@@ -23,7 +23,6 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
     {
         public SpanContextBuilder()
         {
-            LastAcceptedCharacters = AcceptedCharactersInternal.Any;
             Reset();
         }
 
@@ -31,12 +30,9 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
         public SpanEditHandler EditHandler { get; set; }
 
-        public AcceptedCharactersInternal LastAcceptedCharacters { get; private set; }
-
         public SpanContext Build()
         {
             var result = new SpanContext(ChunkGenerator, EditHandler);
-            LastAcceptedCharacters = EditHandler.AcceptedCharacters;
             Reset();
             return result;
         }

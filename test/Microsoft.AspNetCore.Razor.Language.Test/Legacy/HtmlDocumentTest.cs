@@ -18,19 +18,22 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             //            var content = @"
             //@{ \r\n  // asdf \r\n x = y;  }
             //";
+            //            var content = @"
+            //<input checked=""jkjk ` @false`""/>
+            //@custom Foo
+            //@{
+            //using
+            //}
+            //@case: foo
+            //@(foo.bar  @(dfdf
+            //@{ 
+            //// asdf 
+            // x = y;  
+            //var x = ;
+            //}
+            //";
             var content = @"
-<input checked=""jkjk ` @false`""/>
-@custom Foo
-@{
-using
-}
-@case: foo
-@(foo.bar  @(dfdf
-@{ 
-// asdf 
- x = y;  
-var x = ;
-}
+@if (i > 0) { <text>;</text> }
 ";
             var source = TestRazorSourceDocument.Create(content: content);
             //var options = RazorParserOptions.Create(builder =>
@@ -69,10 +72,11 @@ var x = ;
             {
                 CodeParser = new CSharpCodeParser(new[] { directive }, context)
             };
+            parser.CodeParser.HtmlParser = parser;
 
             var node = parser.ParseDocument().CreateRed();
             result = SyntaxNodeSerializer.Serialize(node);
-            //parser.ParseBlock1();
+            //parser.ParseDocument1();
             //var node = context.Builder.Build();
             //result = SyntaxTreeNodeSerializer.Serialize(node);
             Console.WriteLine(result);
