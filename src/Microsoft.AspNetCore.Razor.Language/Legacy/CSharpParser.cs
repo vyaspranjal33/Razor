@@ -355,7 +355,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
         {
             Assert(SyntaxKind.LeftBrace);
             block = block ?? new Block(Resources.BlockName_Code, CurrentStart);
-            var leftBrace = GetExpectedToken(SyntaxKind.LeftBrace);
+            var leftBrace = OutputAsMetaCode(GetExpectedToken(SyntaxKind.LeftBrace));
             CSharpCodeBlockSyntax codeBlock = null;
             using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
             {
@@ -377,14 +377,16 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 codeBlock = SyntaxFactory.CSharpCodeBlock(builder.ToList());
             }
 
-            SyntaxToken rightBrace = null;
+            RazorMetaCodeSyntax rightBrace = null;
             if (At(SyntaxKind.RightBrace))
             {
-                rightBrace = CurrentToken;
+                rightBrace = OutputAsMetaCode(CurrentToken);
             }
             else
             {
-                rightBrace = SyntaxFactory.MissingToken(SyntaxKind.RightBrace);
+                rightBrace = OutputAsMetaCode(
+                    SyntaxFactory.MissingToken(SyntaxKind.RightBrace),
+                    SpanContext.EditHandler.AcceptedCharacters);
             }
 
             if (!IsNested)
@@ -397,7 +399,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 }
             }
 
-            return SyntaxFactory.CSharpStatementBody(OutputAsMetaCode(leftBrace), codeBlock, OutputAsMetaCode(rightBrace));
+            return SyntaxFactory.CSharpStatementBody(leftBrace, codeBlock, rightBrace);
         }
 
         private void ParseCodeBlock(in SyntaxListBuilder<RazorSyntaxNode> builder, Block block, bool acceptTerminatingBrace = true)
@@ -512,8 +514,6 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                         break;
                     case SyntaxKind.LeftBrace:
                         // Verbatim Block
-                        //var statementBody = ParseStatementBody(block);
-                        //builder.Add(statementBody);
                         AcceptTokenAndMoveNext();
                         ParseCodeBlock(builder, block);
                         break;
@@ -557,7 +557,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 // Output "@" as hidden span
                 AcceptToken(transition);
                 SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
-                builder.Add(OutputTokensAsLiteral());
+                builder.Add(OutputTokensAsCodeLiteral());
 
                 Assert(SyntaxKind.Transition);
                 AcceptTokenAndMoveNext();
@@ -1459,8 +1459,6 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             {
                 AcceptTokenWhile(IsSpacingToken(includeNewLines: true, includeComments: true));
 
-                builder.Add(OutputTokensAsStatementLiteral());
-
                 ParseExpectedCodeBlock(builder, block);
             }
         }
@@ -2077,7 +2075,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             return GetNodeWithSpanContext(SyntaxFactory.CSharpDirectiveLiteral(tokens));
         }
 
-        private CSharpCodeLiteralSyntax OutputTokensAsCodeLiteral1()
+        private CSharpCodeLiteralSyntax OutputTokensAsCodeLiteral()
         {
             var tokens = OutputTokens();
             if (tokens.Count == 0)

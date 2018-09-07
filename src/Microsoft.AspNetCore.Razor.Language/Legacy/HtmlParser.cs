@@ -1480,7 +1480,8 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 var shouldAcceptWhitespaceAndNewLine = true;
 
                 // Check if the previous span was a transition.
-                if (builder[builder.Count - 1].Kind == SyntaxKind.HtmlTransition)
+                var previousSpan = GetLastSpan(builder[builder.Count - 1]);
+                if (previousSpan != null && previousSpan.Kind == SyntaxKind.HtmlTransition)
                 {
                     var tokens = ReadWhile(
                         f => (f.Kind == SyntaxKind.Whitespace) || (f.Kind == SyntaxKind.NewLine));
@@ -1518,6 +1519,28 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
 
             builder.Add(OutputTokensAsHtmlLiteral());
+        }
+
+        private Syntax.GreenNode GetLastSpan(RazorSyntaxNode node)
+        {
+            if (node == null)
+            {
+                return null;
+            }
+
+            var red = node.CreateRed();
+            var last = red.GetLastTerminal();
+            if (last == null)
+            {
+                return null;
+            }
+
+            while (last.Green.IsToken || last.Green.IsList)
+            {
+                last = last.Parent;
+            }
+
+            return last.Green;
         }
 
         private void DefaultMarkupSpanContext(SpanContextBuilder spanContext)
