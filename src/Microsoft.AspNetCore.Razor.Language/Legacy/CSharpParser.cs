@@ -187,22 +187,27 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                                 new SourceSpan(block.Start, contentLength: 1 /* ( */), block.Name, ")", "("));
                     }
 
+                    // If necessary, put an empty-content marker token here
                     AcceptMarkerTokenIfNecessary();
                     expressionBuilder.Add(OutputTokensAsExpressionLiteral());
                 }
 
                 var expressionBlock = SyntaxFactory.CSharpCodeBlock(expressionBuilder.ToList());
 
-                if (!OptionalToken(SyntaxKind.RightParenthesis))
+                RazorMetaCodeSyntax rightParen = null;
+                if (At(SyntaxKind.RightParenthesis))
                 {
-                    AcceptToken(SyntaxFactory.MissingToken(SyntaxKind.RightParenthesis));
+                    rightParen = OutputAsMetaCode(EatCurrentToken());
+                }
+                else
+                {
+                    var missingToken = SyntaxFactory.MissingToken(SyntaxKind.RightParenthesis);
+                    rightParen = OutputAsMetaCode(missingToken, SpanContext.EditHandler.AcceptedCharacters);
                 }
                 if (!EndOfFile)
                 {
                     PutCurrentBack();
                 }
-                CompleteBlock(insertMarkerIfNecessary: false);
-                var rightParen = OutputAsMetaCode(OutputTokens());
 
                 return SyntaxFactory.CSharpExpressionBody(leftParen, expressionBlock, rightParen);
             }
@@ -380,7 +385,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             RazorMetaCodeSyntax rightBrace = null;
             if (At(SyntaxKind.RightBrace))
             {
-                rightBrace = OutputAsMetaCode(CurrentToken);
+                rightBrace = OutputAsMetaCode(EatCurrentToken());
             }
             else
             {
@@ -1338,7 +1343,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                     SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
                 }
                 CompleteBlock(insertMarkerIfNecessary: false, captureWhitespaceToEndOfLine: true);
-                builder.Add(OutputAsMetaCode(OutputTokens()));
+                builder.Add(OutputAsMetaCode(OutputTokens(), SpanContext.EditHandler.AcceptedCharacters));
             }
         }
 

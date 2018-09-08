@@ -656,7 +656,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
             Span.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
             Span.ChunkGenerator = SpanChunkGenerator.Null;
-            CompleteBlock1(insertMarkerIfNecessary: false);
+            CompleteBlock1(insertMarkerIfNecessary: false); // This is unnecessary
             Output(SpanKindInternal.MetaCode);
         }
 

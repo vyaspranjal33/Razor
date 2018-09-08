@@ -121,27 +121,27 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public RazorCommentBlockSyntax WithStartCommentTransition(SyntaxToken startCommentTransition)
     {
-        return Update(startCommentTransition, _startCommentStar, _comment, _endCommentStar, _endCommentTransition);
+        return Update(startCommentTransition, StartCommentStar, Comment, EndCommentStar, EndCommentTransition);
     }
 
     public RazorCommentBlockSyntax WithStartCommentStar(SyntaxToken startCommentStar)
     {
-        return Update(_startCommentTransition, startCommentStar, _comment, _endCommentStar, _endCommentTransition);
+        return Update(StartCommentTransition, startCommentStar, Comment, EndCommentStar, EndCommentTransition);
     }
 
     public RazorCommentBlockSyntax WithComment(SyntaxToken comment)
     {
-        return Update(_startCommentTransition, _startCommentStar, comment, _endCommentStar, _endCommentTransition);
+        return Update(StartCommentTransition, StartCommentStar, comment, EndCommentStar, EndCommentTransition);
     }
 
     public RazorCommentBlockSyntax WithEndCommentStar(SyntaxToken endCommentStar)
     {
-        return Update(_startCommentTransition, _startCommentStar, _comment, endCommentStar, _endCommentTransition);
+        return Update(StartCommentTransition, StartCommentStar, Comment, endCommentStar, EndCommentTransition);
     }
 
     public RazorCommentBlockSyntax WithEndCommentTransition(SyntaxToken endCommentTransition)
     {
-        return Update(_startCommentTransition, _startCommentStar, _comment, _endCommentStar, endCommentTransition);
+        return Update(StartCommentTransition, StartCommentStar, Comment, EndCommentStar, endCommentTransition);
     }
   }
 
@@ -429,6 +429,75 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
   }
 
+  internal sealed partial class HtmlBlockSyntax : HtmlSyntaxNode
+  {
+    private SyntaxNode _children;
+
+    internal HtmlBlockSyntax(GreenNode green, SyntaxNode parent, int position)
+        : base(green, parent, position)
+    {
+    }
+
+    public SyntaxList<RazorSyntaxNode> Children 
+    {
+        get
+        {
+            return new SyntaxList<RazorSyntaxNode>(GetRed(ref _children, 0));
+        }
+    }
+
+    internal override SyntaxNode GetNodeSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return GetRedAtZero(ref _children);
+            default: return null;
+        }
+    }
+    internal override SyntaxNode GetCachedSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _children;
+            default: return null;
+        }
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitHtmlBlock(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitHtmlBlock(this);
+    }
+
+    public HtmlBlockSyntax Update(SyntaxList<RazorSyntaxNode> children)
+    {
+        if (children != Children)
+        {
+            var newNode = SyntaxFactory.HtmlBlock(children);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               return newNode.WithAnnotations(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    public HtmlBlockSyntax WithChildren(SyntaxList<RazorSyntaxNode> children)
+    {
+        return Update(children);
+    }
+
+    public HtmlBlockSyntax AddChildren(params RazorSyntaxNode[] items)
+    {
+        return WithChildren(this.Children.AddRange(items));
+    }
+  }
+
   internal sealed partial class HtmlMarkupBlockSyntax : HtmlSyntaxNode
   {
     private SyntaxNode _children;
@@ -707,12 +776,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public HtmlMinimizedAttributeBlockSyntax WithNamePrefix(HtmlTextLiteralSyntax namePrefix)
     {
-        return Update(namePrefix, _name);
+        return Update(namePrefix, Name);
     }
 
     public HtmlMinimizedAttributeBlockSyntax WithName(HtmlTextLiteralSyntax name)
     {
-        return Update(_namePrefix, name);
+        return Update(NamePrefix, name);
     }
 
     public HtmlMinimizedAttributeBlockSyntax AddNamePrefixTextTokens(params SyntaxToken[] items)
@@ -734,7 +803,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     private HtmlTextLiteralSyntax _nameSuffix;
     private SyntaxToken _equalsToken;
     private HtmlTextLiteralSyntax _valuePrefix;
-    private HtmlMarkupBlockSyntax _value;
+    private HtmlBlockSyntax _value;
     private HtmlTextLiteralSyntax _valueSuffix;
 
     internal HtmlAttributeBlockSyntax(GreenNode green, SyntaxNode parent, int position)
@@ -782,7 +851,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         }
     }
 
-    public HtmlMarkupBlockSyntax Value 
+    public HtmlBlockSyntax Value 
     {
         get
         {
@@ -837,7 +906,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         visitor.VisitHtmlAttributeBlock(this);
     }
 
-    public HtmlAttributeBlockSyntax Update(HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name, HtmlTextLiteralSyntax nameSuffix, SyntaxToken equalsToken, HtmlTextLiteralSyntax valuePrefix, HtmlMarkupBlockSyntax value, HtmlTextLiteralSyntax valueSuffix)
+    public HtmlAttributeBlockSyntax Update(HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name, HtmlTextLiteralSyntax nameSuffix, SyntaxToken equalsToken, HtmlTextLiteralSyntax valuePrefix, HtmlBlockSyntax value, HtmlTextLiteralSyntax valueSuffix)
     {
         if (namePrefix != NamePrefix || name != Name || nameSuffix != NameSuffix || equalsToken != EqualsToken || valuePrefix != ValuePrefix || value != Value || valueSuffix != ValueSuffix)
         {
@@ -853,37 +922,37 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public HtmlAttributeBlockSyntax WithNamePrefix(HtmlTextLiteralSyntax namePrefix)
     {
-        return Update(namePrefix, _name, _nameSuffix, _equalsToken, _valuePrefix, _value, _valueSuffix);
+        return Update(namePrefix, Name, NameSuffix, EqualsToken, ValuePrefix, Value, ValueSuffix);
     }
 
     public HtmlAttributeBlockSyntax WithName(HtmlTextLiteralSyntax name)
     {
-        return Update(_namePrefix, name, _nameSuffix, _equalsToken, _valuePrefix, _value, _valueSuffix);
+        return Update(NamePrefix, name, NameSuffix, EqualsToken, ValuePrefix, Value, ValueSuffix);
     }
 
     public HtmlAttributeBlockSyntax WithNameSuffix(HtmlTextLiteralSyntax nameSuffix)
     {
-        return Update(_namePrefix, _name, nameSuffix, _equalsToken, _valuePrefix, _value, _valueSuffix);
+        return Update(NamePrefix, Name, nameSuffix, EqualsToken, ValuePrefix, Value, ValueSuffix);
     }
 
     public HtmlAttributeBlockSyntax WithEqualsToken(SyntaxToken equalsToken)
     {
-        return Update(_namePrefix, _name, _nameSuffix, equalsToken, _valuePrefix, _value, _valueSuffix);
+        return Update(NamePrefix, Name, NameSuffix, equalsToken, ValuePrefix, Value, ValueSuffix);
     }
 
     public HtmlAttributeBlockSyntax WithValuePrefix(HtmlTextLiteralSyntax valuePrefix)
     {
-        return Update(_namePrefix, _name, _nameSuffix, _equalsToken, valuePrefix, _value, _valueSuffix);
+        return Update(NamePrefix, Name, NameSuffix, EqualsToken, valuePrefix, Value, ValueSuffix);
     }
 
-    public HtmlAttributeBlockSyntax WithValue(HtmlMarkupBlockSyntax value)
+    public HtmlAttributeBlockSyntax WithValue(HtmlBlockSyntax value)
     {
-        return Update(_namePrefix, _name, _nameSuffix, _equalsToken, _valuePrefix, value, _valueSuffix);
+        return Update(NamePrefix, Name, NameSuffix, EqualsToken, ValuePrefix, value, ValueSuffix);
     }
 
     public HtmlAttributeBlockSyntax WithValueSuffix(HtmlTextLiteralSyntax valueSuffix)
     {
-        return Update(_namePrefix, _name, _nameSuffix, _equalsToken, _valuePrefix, _value, valueSuffix);
+        return Update(NamePrefix, Name, NameSuffix, EqualsToken, ValuePrefix, Value, valueSuffix);
     }
 
     public HtmlAttributeBlockSyntax AddNamePrefixTextTokens(params SyntaxToken[] items)
@@ -992,12 +1061,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public HtmlLiteralAttributeValueSyntax WithPrefix(HtmlTextLiteralSyntax prefix)
     {
-        return Update(prefix, _value);
+        return Update(prefix, Value);
     }
 
     public HtmlLiteralAttributeValueSyntax WithValue(HtmlTextLiteralSyntax value)
     {
-        return Update(_prefix, value);
+        return Update(Prefix, value);
     }
 
     public HtmlLiteralAttributeValueSyntax AddPrefixTextTokens(params SyntaxToken[] items)
@@ -1015,7 +1084,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
   internal sealed partial class HtmlDynamicAttributeValueSyntax : HtmlSyntaxNode
   {
     private HtmlTextLiteralSyntax _prefix;
-    private HtmlMarkupBlockSyntax _value;
+    private HtmlBlockSyntax _value;
 
     internal HtmlDynamicAttributeValueSyntax(GreenNode green, SyntaxNode parent, int position)
         : base(green, parent, position)
@@ -1030,7 +1099,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         }
     }
 
-    public HtmlMarkupBlockSyntax Value 
+    public HtmlBlockSyntax Value 
     {
         get
         {
@@ -1067,7 +1136,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
         visitor.VisitHtmlDynamicAttributeValue(this);
     }
 
-    public HtmlDynamicAttributeValueSyntax Update(HtmlTextLiteralSyntax prefix, HtmlMarkupBlockSyntax value)
+    public HtmlDynamicAttributeValueSyntax Update(HtmlTextLiteralSyntax prefix, HtmlBlockSyntax value)
     {
         if (prefix != Prefix || value != Value)
         {
@@ -1083,12 +1152,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public HtmlDynamicAttributeValueSyntax WithPrefix(HtmlTextLiteralSyntax prefix)
     {
-        return Update(prefix, _value);
+        return Update(prefix, Value);
     }
 
-    public HtmlDynamicAttributeValueSyntax WithValue(HtmlMarkupBlockSyntax value)
+    public HtmlDynamicAttributeValueSyntax WithValue(HtmlBlockSyntax value)
     {
-        return Update(_prefix, value);
+        return Update(Prefix, value);
     }
 
     public HtmlDynamicAttributeValueSyntax AddPrefixTextTokens(params SyntaxToken[] items)
@@ -1666,12 +1735,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     }
 
     public abstract CSharpTransitionSyntax Transition { get; }
-    public CSharpBlockSyntax WithTransition(CSharpTransitionSyntax _transition) => WithTransitionCore(_transition);
-    internal abstract CSharpBlockSyntax WithTransitionCore(CSharpTransitionSyntax _transition);
+    public CSharpBlockSyntax WithTransition(CSharpTransitionSyntax transition) => WithTransitionCore(transition);
+    internal abstract CSharpBlockSyntax WithTransitionCore(CSharpTransitionSyntax transition);
 
     public abstract CSharpSyntaxNode Body { get; }
-    public CSharpBlockSyntax WithBody(CSharpSyntaxNode _body) => WithBodyCore(_body);
-    internal abstract CSharpBlockSyntax WithBodyCore(CSharpSyntaxNode _body);
+    public CSharpBlockSyntax WithBody(CSharpSyntaxNode body) => WithBodyCore(body);
+    internal abstract CSharpBlockSyntax WithBodyCore(CSharpSyntaxNode body);
   }
 
   internal sealed partial class CSharpStatement : CSharpBlockSyntax
@@ -1746,13 +1815,13 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     internal override CSharpBlockSyntax WithTransitionCore(CSharpTransitionSyntax transition) => WithTransition(transition);
     public new CSharpStatement WithTransition(CSharpTransitionSyntax transition)
     {
-        return Update(transition, _body);
+        return Update(transition, Body);
     }
 
     internal override CSharpBlockSyntax WithBodyCore(CSharpSyntaxNode body) => WithBody(body);
     public new CSharpStatement WithBody(CSharpSyntaxNode body)
     {
-        return Update(_transition, body);
+        return Update(Transition, body);
     }
   }
 
@@ -1838,17 +1907,17 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public CSharpStatementBodySyntax WithOpenBrace(RazorMetaCodeSyntax openBrace)
     {
-        return Update(openBrace, _cSharpCode, _closeBrace);
+        return Update(openBrace, CSharpCode, CloseBrace);
     }
 
     public CSharpStatementBodySyntax WithCSharpCode(CSharpCodeBlockSyntax cSharpCode)
     {
-        return Update(_openBrace, cSharpCode, _closeBrace);
+        return Update(OpenBrace, cSharpCode, CloseBrace);
     }
 
     public CSharpStatementBodySyntax WithCloseBrace(RazorMetaCodeSyntax closeBrace)
     {
-        return Update(_openBrace, _cSharpCode, closeBrace);
+        return Update(OpenBrace, CSharpCode, closeBrace);
     }
 
     public CSharpStatementBodySyntax AddOpenBraceMetaCode(params SyntaxToken[] items)
@@ -1939,13 +2008,13 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     internal override CSharpBlockSyntax WithTransitionCore(CSharpTransitionSyntax transition) => WithTransition(transition);
     public new CSharpExpression WithTransition(CSharpTransitionSyntax transition)
     {
-        return Update(transition, _body);
+        return Update(transition, Body);
     }
 
     internal override CSharpBlockSyntax WithBodyCore(CSharpSyntaxNode body) => WithBody(body);
     public new CSharpExpression WithBody(CSharpSyntaxNode body)
     {
-        return Update(_transition, body);
+        return Update(Transition, body);
     }
   }
 
@@ -2031,17 +2100,17 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public CSharpExpressionBodySyntax WithOpenParen(RazorMetaCodeSyntax openParen)
     {
-        return Update(openParen, _cSharpCode, _closeParen);
+        return Update(openParen, CSharpCode, CloseParen);
     }
 
     public CSharpExpressionBodySyntax WithCSharpCode(CSharpCodeBlockSyntax cSharpCode)
     {
-        return Update(_openParen, cSharpCode, _closeParen);
+        return Update(OpenParen, cSharpCode, CloseParen);
     }
 
     public CSharpExpressionBodySyntax WithCloseParen(RazorMetaCodeSyntax closeParen)
     {
-        return Update(_openParen, _cSharpCode, closeParen);
+        return Update(OpenParen, CSharpCode, closeParen);
     }
 
     public CSharpExpressionBodySyntax AddOpenParenMetaCode(params SyntaxToken[] items)
@@ -2132,13 +2201,13 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     internal override CSharpBlockSyntax WithTransitionCore(CSharpTransitionSyntax transition) => WithTransition(transition);
     public new CSharpImplicitExpression WithTransition(CSharpTransitionSyntax transition)
     {
-        return Update(transition, _body);
+        return Update(transition, Body);
     }
 
     internal override CSharpBlockSyntax WithBodyCore(CSharpSyntaxNode body) => WithBody(body);
     public new CSharpImplicitExpression WithBody(CSharpSyntaxNode body)
     {
-        return Update(_transition, body);
+        return Update(Transition, body);
     }
   }
 
@@ -2283,13 +2352,13 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
     internal override CSharpBlockSyntax WithTransitionCore(CSharpTransitionSyntax transition) => WithTransition(transition);
     public new CSharpDirectiveSyntax WithTransition(CSharpTransitionSyntax transition)
     {
-        return Update(transition, _body);
+        return Update(transition, Body);
     }
 
     internal override CSharpBlockSyntax WithBodyCore(CSharpSyntaxNode body) => WithBody(body);
     public new CSharpDirectiveSyntax WithBody(CSharpSyntaxNode body)
     {
-        return Update(_transition, body);
+        return Update(Transition, body);
     }
   }
 
@@ -2364,12 +2433,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
 
     public CSharpDirectiveBodySyntax WithKeyword(RazorSyntaxNode keyword)
     {
-        return Update(keyword, _cSharpCode);
+        return Update(keyword, CSharpCode);
     }
 
     public CSharpDirectiveBodySyntax WithCSharpCode(CSharpCodeBlockSyntax cSharpCode)
     {
-        return Update(_keyword, cSharpCode);
+        return Update(Keyword, cSharpCode);
     }
 
     public CSharpDirectiveBodySyntax AddCSharpCodeChildren(params RazorSyntaxNode[] items)

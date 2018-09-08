@@ -42,6 +42,10 @@
     <Kind Name="HtmlDocument" />
     <Field Name="Document" Type="HtmlMarkupBlockSyntax" />
   </Node>
+  <Node Name="HtmlBlockSyntax" Base="HtmlSyntaxNode">
+    <Kind Name="HtmlBlock" />
+    <Field Name="Children" Type="SyntaxList&lt;RazorSyntaxNode&gt;" />
+  </Node>
   <Node Name="HtmlMarkupBlockSyntax" Base="HtmlSyntaxNode">
     <Kind Name="HtmlMarkupBlock" />
     <Field Name="Children" Type="SyntaxList&lt;RazorSyntaxNode&gt;" />
@@ -68,7 +72,7 @@
       <Kind Name="Equals" />
     </Field>
     <Field Name="ValuePrefix" Type="HtmlTextLiteralSyntax" Optional="true" />
-    <Field Name="Value" Type="HtmlMarkupBlockSyntax" />
+    <Field Name="Value" Type="HtmlBlockSyntax" />
     <Field Name="ValueSuffix" Type="HtmlTextLiteralSyntax" Optional="true" />
   </Node>
   <Node Name="HtmlLiteralAttributeValueSyntax" Base="HtmlSyntaxNode">
@@ -79,7 +83,7 @@
   <Node Name="HtmlDynamicAttributeValueSyntax" Base="HtmlSyntaxNode">
     <Kind Name="HtmlDynamicAttributeValue" />
     <Field Name="Prefix" Type="HtmlTextLiteralSyntax" Optional="true" />
-    <Field Name="Value" Type="HtmlMarkupBlockSyntax" />
+    <Field Name="Value" Type="HtmlBlockSyntax" />
   </Node>
   
   <!-- CSharp -->

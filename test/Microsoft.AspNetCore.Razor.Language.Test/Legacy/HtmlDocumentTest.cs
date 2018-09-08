@@ -15,24 +15,24 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
         [Fact]
         public void TestHtmlParser()
         {
-            var content = @"
-@{ \r\n  // asdf \r\n x = y;  }
-";
             //            var content = @"
-            //<input checked=""jkjk ` @false`""/>
-            //@custom Foo
-            //@{
-            //using
-            //}
-            //@case: foo
-            //@(foo.bar  @(dfdf
-            //@{ 
-            //// asdf 
-            // x = y;  
-            //var x = ;
-            //}
+            //@if (true) { <text><div>;</text> }
             //";
-            //            var content = @"
+            var content = @"
+<input checked=""jkjk ` @false`""/>
+@custom Foo
+@{
+using
+}
+@case: foo
+@(foo.bar  @(dfdf
+@{ 
+// asdf 
+    x = y;  
+var x = ;
+}
+";
+            //var content = @"
             //@if (i > 0) { <text>;</text> }
             //";
             var source = TestRazorSourceDocument.Create(content: content);

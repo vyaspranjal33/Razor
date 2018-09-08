@@ -91,7 +91,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 #endif
         }
 
-        internal void AssertSyntaxTreeNodeMatchesBaseline(RazorSyntaxTree syntaxTree)
+        internal virtual void AssertSyntaxTreeNodeMatchesBaseline(RazorSyntaxTree syntaxTree)
         {
             AssertSyntaxTreeNodeMatchesBaseline(syntaxTree.Root, syntaxTree.Source.FilePath, syntaxTree.Diagnostics.ToArray());
         }
@@ -179,6 +179,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             {
                 throw new XunitException($"The resource {baselineClassifiedSpansFileName} was not found.");
             }
+            else
+            {
+                var classifiedSpanBaseline = new string[0];
+                classifiedSpanBaseline = classifiedSpanFile.ReadAllText().Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                ClassifiedSpanVerifier.Verify(root, filePath, classifiedSpanBaseline);
+            }
 
             // Verify tag helper spans
             var tagHelperSpanFile = TestFile.Create(baselineTagHelperSpansFileName, GetType().GetTypeInfo().Assembly);
@@ -191,7 +197,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             TagHelperSpanVerifier.Verify(root, filePath, tagHelperSpanBaseline);
         }
 
-        private static string SerializeDiagnostic(RazorDiagnostic diagnostic)
+        protected static string SerializeDiagnostic(RazorDiagnostic diagnostic)
         {
             var content = RazorDiagnosticSerializer.Serialize(diagnostic);
             var normalized = NormalizeNewLines(content);

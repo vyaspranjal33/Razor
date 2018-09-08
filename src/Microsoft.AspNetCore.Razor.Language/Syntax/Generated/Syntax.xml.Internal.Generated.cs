@@ -459,6 +459,87 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     }
   }
 
+  internal sealed partial class HtmlBlockSyntax : HtmlSyntaxNode
+  {
+    private readonly GreenNode _children;
+
+    internal HtmlBlockSyntax(SyntaxKind kind, GreenNode children, RazorDiagnostic[] diagnostics, SyntaxAnnotation[] annotations)
+        : base(kind, diagnostics, annotations)
+    {
+        SlotCount = 1;
+        if (children != null)
+        {
+            AdjustFlagsAndWidth(children);
+            _children = children;
+        }
+    }
+
+
+    internal HtmlBlockSyntax(SyntaxKind kind, GreenNode children)
+        : base(kind)
+    {
+        SlotCount = 1;
+        if (children != null)
+        {
+            AdjustFlagsAndWidth(children);
+            _children = children;
+        }
+    }
+
+    public SyntaxList<RazorSyntaxNode> Children { get { return new SyntaxList<RazorSyntaxNode>(_children); } }
+
+    internal override GreenNode GetSlot(int index)
+    {
+        switch (index)
+        {
+            case 0: return _children;
+            default: return null;
+        }
+    }
+
+    internal override SyntaxNode CreateRed(SyntaxNode parent, int position)
+    {
+      return new Syntax.HtmlBlockSyntax(this, parent, position);
+    }
+
+    public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitHtmlBlock(this);
+    }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitHtmlBlock(this);
+    }
+
+    public HtmlBlockSyntax Update(Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax.SyntaxList<RazorSyntaxNode> children)
+    {
+        if (children != Children)
+        {
+            var newNode = SyntaxFactory.HtmlBlock(children);
+            var diags = GetDiagnostics();
+            if (diags != null && diags.Length > 0)
+               newNode = newNode.WithDiagnosticsGreen(diags);
+            var annotations = GetAnnotations();
+            if (annotations != null && annotations.Length > 0)
+               newNode = newNode.WithAnnotationsGreen(annotations);
+            return newNode;
+        }
+
+        return this;
+    }
+
+    internal override GreenNode SetDiagnostics(RazorDiagnostic[] diagnostics)
+    {
+         return new HtmlBlockSyntax(Kind, _children, diagnostics, GetAnnotations());
+    }
+
+    internal override GreenNode SetAnnotations(SyntaxAnnotation[] annotations)
+    {
+         return new HtmlBlockSyntax(Kind, _children, GetDiagnostics(), annotations);
+    }
+  }
+
   internal sealed partial class HtmlMarkupBlockSyntax : HtmlSyntaxNode
   {
     private readonly GreenNode _children;
@@ -797,10 +878,10 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     private readonly HtmlTextLiteralSyntax _nameSuffix;
     private readonly SyntaxToken _equalsToken;
     private readonly HtmlTextLiteralSyntax _valuePrefix;
-    private readonly HtmlMarkupBlockSyntax _value;
+    private readonly HtmlBlockSyntax _value;
     private readonly HtmlTextLiteralSyntax _valueSuffix;
 
-    internal HtmlAttributeBlockSyntax(SyntaxKind kind, HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name, HtmlTextLiteralSyntax nameSuffix, SyntaxToken equalsToken, HtmlTextLiteralSyntax valuePrefix, HtmlMarkupBlockSyntax value, HtmlTextLiteralSyntax valueSuffix, RazorDiagnostic[] diagnostics, SyntaxAnnotation[] annotations)
+    internal HtmlAttributeBlockSyntax(SyntaxKind kind, HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name, HtmlTextLiteralSyntax nameSuffix, SyntaxToken equalsToken, HtmlTextLiteralSyntax valuePrefix, HtmlBlockSyntax value, HtmlTextLiteralSyntax valueSuffix, RazorDiagnostic[] diagnostics, SyntaxAnnotation[] annotations)
         : base(kind, diagnostics, annotations)
     {
         SlotCount = 7;
@@ -833,7 +914,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     }
 
 
-    internal HtmlAttributeBlockSyntax(SyntaxKind kind, HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name, HtmlTextLiteralSyntax nameSuffix, SyntaxToken equalsToken, HtmlTextLiteralSyntax valuePrefix, HtmlMarkupBlockSyntax value, HtmlTextLiteralSyntax valueSuffix)
+    internal HtmlAttributeBlockSyntax(SyntaxKind kind, HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name, HtmlTextLiteralSyntax nameSuffix, SyntaxToken equalsToken, HtmlTextLiteralSyntax valuePrefix, HtmlBlockSyntax value, HtmlTextLiteralSyntax valueSuffix)
         : base(kind)
     {
         SlotCount = 7;
@@ -870,7 +951,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     public HtmlTextLiteralSyntax NameSuffix { get { return _nameSuffix; } }
     public SyntaxToken EqualsToken { get { return _equalsToken; } }
     public HtmlTextLiteralSyntax ValuePrefix { get { return _valuePrefix; } }
-    public HtmlMarkupBlockSyntax Value { get { return _value; } }
+    public HtmlBlockSyntax Value { get { return _value; } }
     public HtmlTextLiteralSyntax ValueSuffix { get { return _valueSuffix; } }
 
     internal override GreenNode GetSlot(int index)
@@ -903,7 +984,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
         visitor.VisitHtmlAttributeBlock(this);
     }
 
-    public HtmlAttributeBlockSyntax Update(HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name, HtmlTextLiteralSyntax nameSuffix, SyntaxToken equalsToken, HtmlTextLiteralSyntax valuePrefix, HtmlMarkupBlockSyntax value, HtmlTextLiteralSyntax valueSuffix)
+    public HtmlAttributeBlockSyntax Update(HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name, HtmlTextLiteralSyntax nameSuffix, SyntaxToken equalsToken, HtmlTextLiteralSyntax valuePrefix, HtmlBlockSyntax value, HtmlTextLiteralSyntax valueSuffix)
     {
         if (namePrefix != NamePrefix || name != Name || nameSuffix != NameSuffix || equalsToken != EqualsToken || valuePrefix != ValuePrefix || value != Value || valueSuffix != ValueSuffix)
         {
@@ -1022,9 +1103,9 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
   internal sealed partial class HtmlDynamicAttributeValueSyntax : HtmlSyntaxNode
   {
     private readonly HtmlTextLiteralSyntax _prefix;
-    private readonly HtmlMarkupBlockSyntax _value;
+    private readonly HtmlBlockSyntax _value;
 
-    internal HtmlDynamicAttributeValueSyntax(SyntaxKind kind, HtmlTextLiteralSyntax prefix, HtmlMarkupBlockSyntax value, RazorDiagnostic[] diagnostics, SyntaxAnnotation[] annotations)
+    internal HtmlDynamicAttributeValueSyntax(SyntaxKind kind, HtmlTextLiteralSyntax prefix, HtmlBlockSyntax value, RazorDiagnostic[] diagnostics, SyntaxAnnotation[] annotations)
         : base(kind, diagnostics, annotations)
     {
         SlotCount = 2;
@@ -1038,7 +1119,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     }
 
 
-    internal HtmlDynamicAttributeValueSyntax(SyntaxKind kind, HtmlTextLiteralSyntax prefix, HtmlMarkupBlockSyntax value)
+    internal HtmlDynamicAttributeValueSyntax(SyntaxKind kind, HtmlTextLiteralSyntax prefix, HtmlBlockSyntax value)
         : base(kind)
     {
         SlotCount = 2;
@@ -1052,7 +1133,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     }
 
     public HtmlTextLiteralSyntax Prefix { get { return _prefix; } }
-    public HtmlMarkupBlockSyntax Value { get { return _value; } }
+    public HtmlBlockSyntax Value { get { return _value; } }
 
     internal override GreenNode GetSlot(int index)
     {
@@ -1079,7 +1160,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
         visitor.VisitHtmlDynamicAttributeValue(this);
     }
 
-    public HtmlDynamicAttributeValueSyntax Update(HtmlTextLiteralSyntax prefix, HtmlMarkupBlockSyntax value)
+    public HtmlDynamicAttributeValueSyntax Update(HtmlTextLiteralSyntax prefix, HtmlBlockSyntax value)
     {
         if (prefix != Prefix || value != Value)
         {
@@ -2473,6 +2554,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
       return DefaultVisit(node);
     }
 
+    public virtual TResult VisitHtmlBlock(HtmlBlockSyntax node)
+    {
+      return DefaultVisit(node);
+    }
+
     public virtual TResult VisitHtmlMarkupBlock(HtmlMarkupBlockSyntax node)
     {
       return DefaultVisit(node);
@@ -2613,6 +2699,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     }
 
     public virtual void VisitHtmlDocument(HtmlDocumentSyntax node)
+    {
+      DefaultVisit(node);
+    }
+
+    public virtual void VisitHtmlBlock(HtmlBlockSyntax node)
     {
       DefaultVisit(node);
     }
@@ -2769,6 +2860,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
       return node.Update(document);
     }
 
+    public override GreenNode VisitHtmlBlock(HtmlBlockSyntax node)
+    {
+      var children = VisitList(node.Children);
+      return node.Update(children);
+    }
+
     public override GreenNode VisitHtmlMarkupBlock(HtmlMarkupBlockSyntax node)
     {
       var children = VisitList(node.Children);
@@ -2801,7 +2898,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
       var nameSuffix = (HtmlTextLiteralSyntax)Visit(node.NameSuffix);
       var equalsToken = (SyntaxToken)Visit(node.EqualsToken);
       var valuePrefix = (HtmlTextLiteralSyntax)Visit(node.ValuePrefix);
-      var value = (HtmlMarkupBlockSyntax)Visit(node.Value);
+      var value = (HtmlBlockSyntax)Visit(node.Value);
       var valueSuffix = (HtmlTextLiteralSyntax)Visit(node.ValueSuffix);
       return node.Update(namePrefix, name, nameSuffix, equalsToken, valuePrefix, value, valueSuffix);
     }
@@ -2816,7 +2913,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
     public override GreenNode VisitHtmlDynamicAttributeValue(HtmlDynamicAttributeValueSyntax node)
     {
       var prefix = (HtmlTextLiteralSyntax)Visit(node.Prefix);
-      var value = (HtmlMarkupBlockSyntax)Visit(node.Value);
+      var value = (HtmlBlockSyntax)Visit(node.Value);
       return node.Update(prefix, value);
     }
 
@@ -3012,6 +3109,13 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
       return result;
     }
 
+    public static HtmlBlockSyntax HtmlBlock(Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax.SyntaxList<RazorSyntaxNode> children)
+    {
+      var result = new HtmlBlockSyntax(SyntaxKind.HtmlBlock, children.Node);
+
+      return result;
+    }
+
     public static HtmlMarkupBlockSyntax HtmlMarkupBlock(Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax.SyntaxList<RazorSyntaxNode> children)
     {
       var result = new HtmlMarkupBlockSyntax(SyntaxKind.HtmlMarkupBlock, children.Node);
@@ -3043,7 +3147,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
       return result;
     }
 
-    public static HtmlAttributeBlockSyntax HtmlAttributeBlock(HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name, HtmlTextLiteralSyntax nameSuffix, SyntaxToken equalsToken, HtmlTextLiteralSyntax valuePrefix, HtmlMarkupBlockSyntax value, HtmlTextLiteralSyntax valueSuffix)
+    public static HtmlAttributeBlockSyntax HtmlAttributeBlock(HtmlTextLiteralSyntax namePrefix, HtmlTextLiteralSyntax name, HtmlTextLiteralSyntax nameSuffix, SyntaxToken equalsToken, HtmlTextLiteralSyntax valuePrefix, HtmlBlockSyntax value, HtmlTextLiteralSyntax valueSuffix)
     {
       if (name == null)
         throw new ArgumentNullException(nameof(name));
@@ -3072,7 +3176,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
       return result;
     }
 
-    public static HtmlDynamicAttributeValueSyntax HtmlDynamicAttributeValue(HtmlTextLiteralSyntax prefix, HtmlMarkupBlockSyntax value)
+    public static HtmlDynamicAttributeValueSyntax HtmlDynamicAttributeValue(HtmlTextLiteralSyntax prefix, HtmlBlockSyntax value)
     {
       if (value == null)
         throw new ArgumentNullException(nameof(value));
@@ -3252,6 +3356,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax.InternalSyntax
            typeof(HtmlTransitionSyntax),
            typeof(HtmlTextLiteralSyntax),
            typeof(HtmlDocumentSyntax),
+           typeof(HtmlBlockSyntax),
            typeof(HtmlMarkupBlockSyntax),
            typeof(HtmlCommentBlockSyntax),
            typeof(HtmlTagBlockSyntax),

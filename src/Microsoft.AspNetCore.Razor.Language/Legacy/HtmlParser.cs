@@ -415,7 +415,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
 
             HtmlTextLiteralSyntax valuePrefix = null;
-            HtmlMarkupBlockSyntax attributeValue = null;
+            HtmlBlockSyntax attributeValue = null;
             HtmlTextLiteralSyntax valueSuffix = null;
 
             if (attributeCanBeConditional)
@@ -438,7 +438,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                             ParseAttributeValue(attributeValueBuilder, quote);
                         }
 
-                        attributeValue = SyntaxFactory.HtmlMarkupBlock(attributeValueBuilder.ToList());
+                        attributeValue = SyntaxFactory.HtmlBlock(attributeValueBuilder.ToList());
                     }
                 }
 
@@ -462,7 +462,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                     SkipToAndParseCode(attributeValueBuilder, token => IsEndOfAttributeValue(quote, token));
 
                     // Capture the attribute value (will include everything in-between the attribute's quotes).
-                    attributeValue = SyntaxFactory.HtmlMarkupBlock(attributeValueBuilder.ToList());
+                    attributeValue = SyntaxFactory.HtmlBlock(attributeValueBuilder.ToList());
                 }
 
                 if (quote != SyntaxKind.Unknown)
@@ -524,7 +524,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                         var dynamicAttributeValueBuilder = pooledResult.Builder;
 
                         OtherParserBlock(dynamicAttributeValueBuilder);
-                        var value = SyntaxFactory.HtmlDynamicAttributeValue(prefix, SyntaxFactory.HtmlMarkupBlock(dynamicAttributeValueBuilder.ToList()));
+                        var value = SyntaxFactory.HtmlDynamicAttributeValue(prefix, SyntaxFactory.HtmlBlock(dynamicAttributeValueBuilder.ToList()));
                         builder.Add(value);
                     }
                 }

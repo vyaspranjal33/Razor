@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.AspNetCore.Razor.Language.Legacy;
 using Microsoft.AspNetCore.Razor.Language.Syntax;
 
@@ -31,6 +32,14 @@ namespace Microsoft.AspNetCore.Razor.Language
 
         public override SyntaxNode VisitCSharpCodeBlock(CSharpCodeBlockSyntax node)
         {
+            if (node.Parent is CSharpStatementBodySyntax ||
+                node.Parent is CSharpExpressionBodySyntax ||
+                node.Parent is CSharpImplicitExpressionBodySyntax ||
+                node.Parent is CSharpDirectiveBodySyntax)
+            {
+                return base.VisitCSharpCodeBlock(node);
+            }
+
             return WriteBlock(node, BlockKindInternal.Statement, base.VisitCSharpCodeBlock);
         }
 
@@ -71,12 +80,27 @@ namespace Microsoft.AspNetCore.Razor.Language
 
         public override SyntaxNode VisitHtmlAttributeBlock(HtmlAttributeBlockSyntax node)
         {
-            return WriteBlock(node, BlockKindInternal.Markup, base.VisitHtmlAttributeBlock);
+            return WriteBlock(node, BlockKindInternal.Markup, n =>
+            {
+                var equalsSyntax = SyntaxFactory.HtmlTextLiteral(new SyntaxList<SyntaxToken>(node.EqualsToken));
+                var mergedAttributePrefix = MergeTextLiteralSpans(node.NamePrefix, node.Name, node.NameSuffix, equalsSyntax, node.ValuePrefix);
+                Visit(mergedAttributePrefix);
+                Visit(node.Value);
+                Visit(node.ValueSuffix);
+
+                return n;
+            });
         }
 
         public override SyntaxNode VisitHtmlMinimizedAttributeBlock(HtmlMinimizedAttributeBlockSyntax node)
         {
-            return WriteBlock(node, BlockKindInternal.Markup, base.VisitHtmlMinimizedAttributeBlock);
+            return WriteBlock(node, BlockKindInternal.Markup, n =>
+            {
+                var mergedAttributePrefix = MergeTextLiteralSpans(node.NamePrefix, node.Name);
+                Visit(mergedAttributePrefix);
+
+                return n;
+            });
         }
 
         public override SyntaxNode VisitHtmlCommentBlock(HtmlCommentBlockSyntax node)
@@ -190,10 +214,54 @@ namespace Microsoft.AspNetCore.Razor.Language
             _spans.Add(span);
         }
 
+        private HtmlTextLiteralSyntax MergeTextLiteralSpans(params HtmlTextLiteralSyntax[] literalSyntaxes)
+        {
+            if (literalSyntaxes == null || literalSyntaxes.Length == 0)
+            {
+                return null;
+            }
+
+            SyntaxNode parent = null;
+            var position = 0;
+            var seenFirstLiteral = false;
+            var builder = Syntax.InternalSyntax.SyntaxListBuilder.Create();
+
+            foreach (var syntax in literalSyntaxes)
+            {
+                if (syntax == null)
+                {
+                    continue;
+                }
+                else if (!seenFirstLiteral)
+                {
+                    parent = syntax.Parent;
+                    position = syntax.Position;
+                    seenFirstLiteral = true;
+                }
+
+                foreach (var token in syntax.TextTokens)
+                {
+                    builder.Add(token.Green);
+                }
+            }
+
+            var mergedLiteralSyntax = Syntax.InternalSyntax.SyntaxFactory.HtmlTextLiteral(
+                builder.ToList<Syntax.InternalSyntax.SyntaxToken>());
+
+            return (HtmlTextLiteralSyntax)mergedLiteralSyntax.CreateRed(parent, position);
+        }
+
         private SourceSpan GetSourceSpanForPosition(int absoluteIndex, int length)
         {
-            var location = _source.Lines.GetLocation(absoluteIndex);
-            return new SourceSpan(location, length);
+            try
+            {
+                var location = _source.Lines.GetLocation(absoluteIndex);
+                return new SourceSpan(location, length);
+            }
+            catch (IndexOutOfRangeException)
+            {
+                return new SourceSpan(_source.FilePath, absoluteIndex, 0, 0, length);
+            }
         }
     }
 }

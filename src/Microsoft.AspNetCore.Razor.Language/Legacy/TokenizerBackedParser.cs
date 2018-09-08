@@ -1020,7 +1020,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
             var metacode = SyntaxFactory.RazorMetaCode(tokens);
             SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
-            SpanContext.EditHandler.AcceptedCharacters = accepted.HasValue ? accepted.Value : AcceptedCharactersInternal.None;
+            SpanContext.EditHandler.AcceptedCharacters = accepted ?? AcceptedCharactersInternal.None;
 
             return GetNodeWithSpanContext(metacode);
         }

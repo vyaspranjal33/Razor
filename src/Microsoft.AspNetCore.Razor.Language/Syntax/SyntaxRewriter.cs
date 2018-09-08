@@ -5,7 +5,7 @@ using System.Diagnostics;
 
 namespace Microsoft.AspNetCore.Razor.Language.Syntax
 {
-    internal partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode>
+    internal abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode>
     {
         public override SyntaxNode VisitToken(SyntaxToken token)
         {

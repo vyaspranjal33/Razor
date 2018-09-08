@@ -9,6 +9,7 @@ namespace Microsoft.AspNetCore.Razor.Language
         // HTML
         HtmlTextLiteral,
         HtmlDocument,
+        HtmlBlock,
         HtmlMarkupBlock,
         HtmlTagBlock,
         HtmlAttributeBlock,
