@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.AspNetCore.Razor.Language.Legacy;
 using Microsoft.AspNetCore.Razor.Language.Syntax;
 
@@ -201,8 +200,8 @@ namespace Microsoft.AspNetCore.Razor.Language
                 return;
             }
 
-            var spanSource = GetSourceSpanForPosition(node.Position, node.FullWidth);
-            var blockSource = GetSourceSpanForPosition(_currentBlock.Position, _currentBlock.FullWidth);
+            var spanSource = GetSourceSpanForNode(node);
+            var blockSource = GetSourceSpanForNode(_currentBlock);
             var acceptedCharacters = AcceptedCharactersInternal.Any;
             var annotation = node.GetAnnotationValue(SyntaxConstants.SpanContextKind);
             if (annotation is SpanContext context)
@@ -251,16 +250,15 @@ namespace Microsoft.AspNetCore.Razor.Language
             return (HtmlTextLiteralSyntax)mergedLiteralSyntax.CreateRed(parent, position);
         }
 
-        private SourceSpan GetSourceSpanForPosition(int absoluteIndex, int length)
+        private SourceSpan GetSourceSpanForNode(SyntaxNode node)
         {
             try
             {
-                var location = _source.Lines.GetLocation(absoluteIndex);
-                return new SourceSpan(location, length);
+                return node.GetSourceSpan(_source);
             }
             catch (IndexOutOfRangeException)
             {
-                return new SourceSpan(_source.FilePath, absoluteIndex, 0, 0, length);
+                return new SourceSpan(_source.FilePath, node.Position, 0, 0, node.FullWidth);
             }
         }
     }

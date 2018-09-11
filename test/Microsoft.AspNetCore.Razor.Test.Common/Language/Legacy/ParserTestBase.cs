@@ -763,7 +763,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             Trace.WriteLine(string.Format(format, args));
         }
 
-        private static RazorParserOptions CreateParserOptions(
+        protected static RazorParserOptions CreateParserOptions(
             RazorLanguageVersion version, 
             IEnumerable<DirectiveDescriptor> directives, 
             bool designTime)

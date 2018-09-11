@@ -27,6 +27,16 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
         }
 
+        internal static void Verify(RazorSyntaxTree syntaxTree, string[] baseline)
+        {
+            using (var writer = new StringWriter())
+            {
+                var walker = new Walker(writer, syntaxTree, baseline);
+                walker.Visit();
+                walker.AssertReachedEndOfBaseline();
+            }
+        }
+
         private static RazorSyntaxTree GetSyntaxTree(Block root, string filePath)
         {
             return RazorSyntaxTree.Create(

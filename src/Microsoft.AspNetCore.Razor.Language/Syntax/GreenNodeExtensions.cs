@@ -48,7 +48,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Syntax
             }
         }
 
-        public static TNode WithDiagnosticsGreen<TNode>(this TNode node, RazorDiagnostic[] diagnostics) where TNode : GreenNode
+        public static TNode WithDiagnosticsGreen<TNode>(this TNode node, params RazorDiagnostic[] diagnostics) where TNode : GreenNode
         {
             return (TNode)node.SetDiagnostics(diagnostics);
         }

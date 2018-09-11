@@ -1219,6 +1219,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
                 var directiveBody = SyntaxFactory.CSharpDirectiveBody(keywordBlock, directiveCodeBlock);
                 var directive = SyntaxFactory.CSharpDirective(transition, directiveBody);
+                directive = (CSharpDirectiveSyntax)directive.SetDiagnostics(directiveErrorSink.Errors.ToArray());
                 builder.Add(directive);
             }
         }

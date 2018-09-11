@@ -1,13 +1,14 @@
-// Copyright (c) .NET Foundation. All rights reserved.
+﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.IO;
+using Microsoft.AspNetCore.Razor.Language.Syntax;
 
 namespace Microsoft.AspNetCore.Razor.Language.Legacy
 {
-    public static class SyntaxTreeNodeSerializer
+    public static class SyntaxNodeSerializer
     {
-        internal static string Serialize(SyntaxTreeNode node)
+        internal static string Serialize(SyntaxNode node)
         {
             using (var writer = new StringWriter())
             {
@@ -18,30 +19,42 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
         }
 
-        private class Walker : SyntaxTreeNodeWalker
+        private class Walker : SyntaxNodeWalker
         {
-            private readonly SyntaxTreeNodeWriter _visitor;
+            private readonly SyntaxNodeWriter _visitor;
             private readonly TextWriter _writer;
 
             public Walker(TextWriter writer)
             {
-                _visitor = new SyntaxTreeNodeWriter(writer);
+                _visitor = new SyntaxNodeWriter(writer);
                 _writer = writer;
             }
 
             public TextWriter Writer { get; }
 
-            public override void Visit(SyntaxTreeNode node)
+            public override SyntaxNode Visit(SyntaxNode node)
             {
+                if (node == null)
+                {
+                    return node;
+                }
+
+                if (node.IsList)
+                {
+                    return base.DefaultVisit(node);
+                }
+
                 _visitor.Visit(node);
                 _writer.WriteLine();
 
-                if (node is Block block)
+                if (!node.IsToken && !node.IsTrivia)
                 {
                     _visitor.Depth++;
-                    base.VisitDefault(block);
+                    node = base.DefaultVisit(node);
                     _visitor.Depth--;
                 }
+
+                return node;
             }
         }
     }

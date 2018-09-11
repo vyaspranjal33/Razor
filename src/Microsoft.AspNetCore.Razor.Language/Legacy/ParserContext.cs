@@ -52,7 +52,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
         public bool InTemplateContext { get; set; }
 
-        public AcceptedCharactersInternal LastAcceptedCharacters { get; set; } = AcceptedCharactersInternal.Any;
+        public AcceptedCharactersInternal LastAcceptedCharacters { get; set; } = AcceptedCharactersInternal.None;
 
         public bool EndOfFile
         {
