@@ -684,7 +684,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
         private void SectionBlock(string left, string right, bool caseSensitive)
         {
-            ParseWithOtherParser(p => p.ParseRazorBlock(Tuple.Create(left, right), caseSensitive));
+            ParseWithOtherParser(p => p.ParseRazorBlock1(Tuple.Create(left, right), caseSensitive));
         }
 
         private void NestedBlock()
@@ -1798,7 +1798,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
                             using (PushSpanConfig())
                             {
-                                HtmlParser.ParseRazorBlock(Tuple.Create("{", "}"), caseSensitive: true);
+                                HtmlParser.ParseRazorBlock1(Tuple.Create("{", "}"), caseSensitive: true);
                             }
 
                             Span.Start = CurrentLocation;

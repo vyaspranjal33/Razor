@@ -208,7 +208,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 else if (NextIs(SyntaxKind.QuestionMark))
                 {
                     AcceptTokenAndMoveNext(); // Accept '<'
-                    TryParseXmlPI();
+                    TryParseXmlPI(builder);
                     return;
                 }
 
@@ -239,9 +239,8 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                             tagBuilder.Add(OutputTokensAsHtmlLiteral());
                             var block = SyntaxFactory.HtmlTagBlock(tagBuilder.ToList());
                             builder.Add(block);
-                            Pool.Free(tagBuilder);
 
-                            SkipToEndScriptAndParseCode(tagBuilder);
+                            SkipToEndScriptAndParseCode(builder);
                             return;
                         }
                     }
@@ -504,6 +503,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
                         SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
                         AcceptTokenAndMoveNext();
+                        SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
                         markupBuilder.Add(OutputTokensAsHtmlLiteral());
 
                         var markupBlock = SyntaxFactory.HtmlMarkupBlock(markupBuilder.ToList());
@@ -635,6 +635,8 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                                 AcceptTokenAndMoveNext();
                                 SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
                                 htmlCommentBuilder.Add(OutputTokensAsHtmlLiteral());
+                                var commentBlock = SyntaxFactory.HtmlCommentBlock(htmlCommentBuilder.ToList());
+                                builder.Add(commentBlock);
                                 return true;
                             }
                             else if (lastDoubleHyphen != null)
@@ -642,29 +644,26 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                                 AcceptToken(lastDoubleHyphen);
                             }
                         }
-
-                        var commentBlock = SyntaxFactory.HtmlCommentBlock(htmlCommentBuilder.ToList());
-                        builder.Add(commentBlock);
                     }
                 }
                 else if (CurrentToken.Kind == SyntaxKind.LeftBracket)
                 {
                     if (AcceptTokenAndMoveNext())
                     {
-                        return TryParseCData();
+                        return TryParseCData(builder);
                     }
                 }
                 else
                 {
                     AcceptTokenAndMoveNext();
-                    return AcceptTokenUntilAll(SyntaxKind.CloseAngle);
+                    return AcceptTokenUntilAll(builder, SyntaxKind.CloseAngle);
                 }
             }
 
             return false;
         }
 
-        private bool TryParseCData()
+        private bool TryParseCData(in SyntaxListBuilder<RazorSyntaxNode> builder)
         {
             if (CurrentToken.Kind == SyntaxKind.Text && string.Equals(CurrentToken.Content, "cdata", StringComparison.OrdinalIgnoreCase))
             {
@@ -672,7 +671,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 {
                     if (CurrentToken.Kind == SyntaxKind.LeftBracket)
                     {
-                        return AcceptTokenUntilAll(SyntaxKind.RightBracket, SyntaxKind.RightBracket, SyntaxKind.CloseAngle);
+                        return AcceptTokenUntilAll(builder, SyntaxKind.RightBracket, SyntaxKind.RightBracket, SyntaxKind.CloseAngle);
                     }
                 }
             }
@@ -680,12 +679,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             return false;
         }
 
-        private bool TryParseXmlPI()
+        private bool TryParseXmlPI(in SyntaxListBuilder<RazorSyntaxNode> builder)
         {
             // Accept "?"
             Assert(SyntaxKind.QuestionMark);
             AcceptTokenAndMoveNext();
-            return AcceptTokenUntilAll(SyntaxKind.QuestionMark, SyntaxKind.CloseAngle);
+            return AcceptTokenUntilAll(builder, SyntaxKind.QuestionMark, SyntaxKind.CloseAngle);
         }
 
         private void ParseOptionalBangEscape(in SyntaxListBuilder<RazorSyntaxNode> builder)
@@ -854,11 +853,11 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             return lastDoubleHyphen;
         }
 
-        private bool AcceptTokenUntilAll(params SyntaxKind[] endSequence)
+        private bool AcceptTokenUntilAll(in SyntaxListBuilder<RazorSyntaxNode> builder, params SyntaxKind[] endSequence)
         {
             while (!EndOfFile)
             {
-                SkipToAndParseCode(endSequence[0]);
+                SkipToAndParseCode(builder, endSequence[0]);
                 if (AcceptAllToken(endSequence))
                 {
                     return true;
@@ -901,15 +900,16 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
                     // Definitely have a transition span
                     Assert(SyntaxKind.Transition);
-                    var transitionToken = EatCurrentToken();
+                    AcceptTokenAndMoveNext();
                     SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.None;
                     SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
-                    builder.Add(SyntaxFactory.HtmlTransition(transitionToken));
+                    var transition = GetNodeWithSpanContext(SyntaxFactory.HtmlTransition(OutputTokens()));
+                    builder.Add(transition);
                     if (At(SyntaxKind.Transition))
                     {
                         SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
                         AcceptTokenAndMoveNext();
-                        builder.Add(OutputAsMetaCode(OutputTokens()));
+                        builder.Add(OutputAsMetaCode(OutputTokens(), AcceptedCharactersInternal.Any));
                     }
                     ParseAfterTransition(builder);
                 }
@@ -938,7 +938,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 // The first part (left) is added to this span and we return a MetaCode span
                 AcceptToken(split.Item1);
                 SpanContext.ChunkGenerator = SpanChunkGenerator.Null;
-                builder.Add(OutputAsMetaCode(OutputTokens()));
+                builder.Add(OutputAsMetaCode(OutputTokens(), AcceptedCharactersInternal.Any));
                 if (split.Item2 != null)
                 {
                     AcceptToken(split.Item2);
@@ -1074,7 +1074,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                     case SyntaxKind.QuestionMark:
                         // XML PI
                         AcceptToken(_bufferedOpenAngle);
-                        return Tuple.Create(TryParseXmlPI(), blockAlreadyBuilt);
+                        return Tuple.Create(TryParseXmlPI(builder), blockAlreadyBuilt);
                     default:
                         // Start Tag
                         return ParseStartTag(builder, parentBuilder, tags);
@@ -1519,6 +1519,179 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
 
             builder.Add(OutputTokensAsHtmlLiteral());
+        }
+
+        public HtmlMarkupBlockSyntax ParseRazorBlock(Tuple<string, string> nestingSequences, bool caseSensitive)
+        {
+            if (Context == null)
+            {
+                throw new InvalidOperationException(Resources.Parser_Context_Not_Set);
+            }
+
+            using (var pooledResult = Pool.Allocate<RazorSyntaxNode>())
+            using (PushSpanContextConfig(DefaultMarkupSpanContext))
+            {
+                var builder = pooledResult.Builder;
+
+                NextToken();
+                CaseSensitive = caseSensitive;
+                if (nestingSequences.Item1 == null)
+                {
+                    NonNestingSection(builder, nestingSequences.Item2.Split());
+                }
+                else
+                {
+                    NestingSection(builder, nestingSequences);
+                }
+                AcceptMarkerTokenIfNecessary();
+                builder.Add(OutputTokensAsHtmlLiteral());
+
+                return SyntaxFactory.HtmlMarkupBlock(builder.ToList());
+            }
+        }
+
+        private void NonNestingSection(in SyntaxListBuilder<RazorSyntaxNode> builder, string[] nestingSequenceComponents)
+        {
+            do
+            {
+                SkipToAndParseCode(builder, token => token.Kind == SyntaxKind.OpenAngle || AtEnd(nestingSequenceComponents));
+                ParseTagInDocumentContext(builder);
+                if (!EndOfFile && AtEnd(nestingSequenceComponents))
+                {
+                    break;
+                }
+            }
+            while (!EndOfFile);
+
+            PutCurrentBack();
+        }
+
+        private void NestingSection(in SyntaxListBuilder<RazorSyntaxNode> builder, Tuple<string, string> nestingSequences)
+        {
+            var nesting = 1;
+            while (nesting > 0 && !EndOfFile)
+            {
+                SkipToAndParseCode(builder, token =>
+                    token.Kind == SyntaxKind.Text ||
+                    token.Kind == SyntaxKind.OpenAngle);
+                if (At(SyntaxKind.Text))
+                {
+                    nesting += ProcessTextToken(builder, nestingSequences, nesting);
+                    if (CurrentToken != null)
+                    {
+                        AcceptTokenAndMoveNext();
+                    }
+                    else if (nesting > 0)
+                    {
+                        NextToken();
+                    }
+                }
+                else
+                {
+                    ParseTagInDocumentContext(builder);
+                }
+            }
+        }
+
+        private bool AtEnd(string[] nestingSequenceComponents)
+        {
+            EnsureCurrent();
+            if (string.Equals(CurrentToken.Content, nestingSequenceComponents[0], Comparison))
+            {
+                var bookmark = Context.Source.Position - CurrentToken.Content.Length;
+                try
+                {
+                    foreach (var component in nestingSequenceComponents)
+                    {
+                        if (!EndOfFile && !string.Equals(CurrentToken.Content, component, Comparison))
+                        {
+                            return false;
+                        }
+                        NextToken();
+                        while (!EndOfFile && IsSpacingToken(includeNewLines: true)(CurrentToken))
+                        {
+                            NextToken();
+                        }
+                    }
+                    return true;
+                }
+                finally
+                {
+                    Context.Source.Position = bookmark;
+                    NextToken();
+                }
+            }
+            return false;
+        }
+
+        private int ProcessTextToken(in SyntaxListBuilder<RazorSyntaxNode> builder, Tuple<string, string> nestingSequences, int currentNesting)
+        {
+            for (var i = 0; i < CurrentToken.Content.Length; i++)
+            {
+                var nestingDelta = HandleNestingSequence(builder, nestingSequences.Item1, i, currentNesting, 1);
+                if (nestingDelta == 0)
+                {
+                    nestingDelta = HandleNestingSequence(builder, nestingSequences.Item2, i, currentNesting, -1);
+                }
+
+                if (nestingDelta != 0)
+                {
+                    return nestingDelta;
+                }
+            }
+            return 0;
+        }
+
+        private int HandleNestingSequence(in SyntaxListBuilder<RazorSyntaxNode> builder, string sequence, int position, int currentNesting, int retIfMatched)
+        {
+            if (sequence != null &&
+                CurrentToken.Content[position] == sequence[0] &&
+                position + sequence.Length <= CurrentToken.Content.Length)
+            {
+                var possibleStart = CurrentToken.Content.Substring(position, sequence.Length);
+                if (string.Equals(possibleStart, sequence, Comparison))
+                {
+                    // Capture the current token and "put it back" (really we just want to clear CurrentToken)
+                    var bookmark = CurrentStart;
+                    var token = CurrentToken;
+                    PutCurrentBack();
+
+                    // Carve up the token
+                    var pair = Language.SplitToken(token, position, SyntaxKind.Text);
+                    var preSequence = pair.Item1;
+                    Debug.Assert(pair.Item2 != null);
+                    pair = Language.SplitToken(pair.Item2, sequence.Length, SyntaxKind.Text);
+                    var sequenceToken = pair.Item1;
+                    var postSequence = pair.Item2;
+                    var postSequenceBookmark = bookmark.AbsoluteIndex + preSequence.Content.Length + pair.Item1.Content.Length;
+
+                    // Accept the first chunk (up to the nesting sequence we just saw)
+                    if (!string.IsNullOrEmpty(preSequence.Content))
+                    {
+                        AcceptToken(preSequence);
+                    }
+
+                    if (currentNesting + retIfMatched == 0)
+                    {
+                        // This is 'popping' the final entry on the stack of nesting sequences
+                        // A caller higher in the parsing stack will accept the sequence token, so advance
+                        // to it
+                        Context.Source.Position = bookmark.AbsoluteIndex + preSequence.Content.Length;
+                    }
+                    else
+                    {
+                        // This isn't the end of the last nesting sequence, accept the token and keep going
+                        AcceptToken(sequenceToken);
+
+                        // Position at the start of the postSequence token, which might be null.
+                        Context.Source.Position = postSequenceBookmark;
+                    }
+
+                    // Return the value we were asked to return if matched, since we found a nesting sequence
+                    return retIfMatched;
+                }
+            }
+            return 0;
         }
 
         private Syntax.GreenNode GetLastSpan(RazorSyntaxNode node)

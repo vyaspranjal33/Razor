@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Razor.Language.Legacy;
 using Microsoft.AspNetCore.Razor.Language.Syntax;
 
@@ -254,10 +255,28 @@ namespace Microsoft.AspNetCore.Razor.Language
         {
             try
             {
+                if (_source.Length == 0)
+                {
+                    // Just a marker symbol
+                    return new SourceSpan(_source.FilePath, 0, 0, 0, node.FullWidth);
+                }
+                if (node.Position >= _source.Length)
+                {
+                    // E.g. Marker symbol at the end of the document
+                    var lastLocation = _source.Lines.GetLocation(_source.Length - 1);
+                    return new SourceSpan(
+                        lastLocation.FilePath,
+                        lastLocation.AbsoluteIndex + 1,
+                        lastLocation.LineIndex,
+                        lastLocation.CharacterIndex + 1,
+                        node.FullWidth);
+                }
+
                 return node.GetSourceSpan(_source);
             }
             catch (IndexOutOfRangeException)
             {
+                Debug.Assert(false, "Node position should stay within document length.");
                 return new SourceSpan(_source.FilePath, node.Position, 0, 0, node.FullWidth);
             }
         }

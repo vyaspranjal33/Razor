@@ -33,6 +33,8 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                 var builder = pooledResult.Builder;
                 try
                 {
+                    NextToken();
+
                     // Unless changed, the block is a statement block
                     AcceptTokenWhile(IsSpacingToken(includeNewLines: true, includeComments: true));
                     builder.Add(OutputTokensAsStatementLiteral());
@@ -120,9 +122,12 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                         {
                             AcceptedCharacters = AcceptedCharactersInternal.NonWhitespace
                         };
-                        builder.Add(transition);
+
                         AcceptMarkerTokenIfNecessary();
-                        builder.Add(OutputTokensAsExpressionLiteral());
+                        var expressionLiteral = SyntaxFactory.CSharpCodeBlock(OutputTokensAsExpressionLiteral());
+                        var expressionBody = SyntaxFactory.CSharpImplicitExpressionBody(expressionLiteral);
+                        var expressionBlock = SyntaxFactory.CSharpImplicitExpression(transition, expressionBody);
+                        builder.Add(expressionBlock);
 
                         if (At(SyntaxKind.Whitespace) || At(SyntaxKind.NewLine))
                         {
@@ -1161,10 +1166,10 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                             break;
                         case DirectiveKind.RazorBlock:
                             AcceptTokenWhile(IsSpacingToken(includeNewLines: true, includeComments: true));
-                            SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.Whitespace;
+                            SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.AllWhitespace;
                             directiveBuilder.Add(OutputTokensAsHtmlLiteral());
 
-                            ParseDirectiveBlock(descriptor, parseChildren: (startingBraceLocation) =>
+                            ParseDirectiveBlock(directiveBuilder, descriptor, parseChildren: (childBuilder, startingBraceLocation) =>
                             {
                                 // When transitioning to the HTML parser we no longer want to act as if we're in a nested C# state.
                                 // For instance, if <div>@hello.</div> is in a nested C# block we don't want the trailing '.' to be handled
@@ -1174,7 +1179,8 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
                                 using (PushSpanContextConfig())
                                 {
-                                    //HtmlParser.ParseRazorBlock(directiveBuilder, Tuple.Create("{", "}"), caseSensitive: true);
+                                    var razorBlock = HtmlParser.ParseRazorBlock(Tuple.Create("{", "}"), caseSensitive: true);
+                                    directiveBuilder.Add(razorBlock);
                                 }
 
                                 InitializeContext(SpanContext);

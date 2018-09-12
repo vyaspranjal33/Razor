@@ -1758,7 +1758,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             return false;
         }
 
-        public void ParseRazorBlock(Tuple<string, string> nestingSequences, bool caseSensitive)
+        public void ParseRazorBlock1(Tuple<string, string> nestingSequences, bool caseSensitive)
         {
             if (Context == null)
             {
@@ -1791,9 +1791,9 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
         {
             do
             {
-                SkipToAndParseCode(token => token.Kind == SyntaxKind.OpenAngle || AtEnd(nestingSequenceComponents));
+                SkipToAndParseCode(token => token.Kind == SyntaxKind.OpenAngle || AtEnd1(nestingSequenceComponents));
                 ScanTagInDocumentContext();
-                if (!EndOfFile && AtEnd(nestingSequenceComponents))
+                if (!EndOfFile && AtEnd1(nestingSequenceComponents))
                 {
                     break;
                 }
@@ -1830,7 +1830,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             }
         }
 
-        private bool AtEnd(string[] nestingSequenceComponents)
+        private bool AtEnd1(string[] nestingSequenceComponents)
         {
             EnsureCurrent();
             if (string.Equals(CurrentToken.Content, nestingSequenceComponents[0], Comparison))
