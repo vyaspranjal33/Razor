@@ -76,6 +76,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Extensions
                                 .Write(node.Content)
                                 .WriteLine(");");
                         }
+
                         break;
 
                     case DirectiveTokenKind.Member:

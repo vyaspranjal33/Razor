@@ -27,13 +27,15 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             State = state;
         }
 
-        public DefaultProjectSnapshot ProjectInternal { get; }
-
         public DocumentState State { get; }
+
+        public DefaultProjectSnapshot ProjectInternal { get; }
 
         public override string FilePath => State.HostDocument.FilePath;
 
         public override string TargetPath => State.HostDocument.TargetPath;
+
+        public override bool SupportsOutput => true;
 
         public override ProjectSnapshot Project => ProjectInternal;
 
@@ -52,10 +54,16 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             return State.GetTextVersionAsync();
         }
 
-        public override Task<RazorCodeDocument> GetGeneratedOutputAsync()
+        public override async Task<RazorCodeDocument> GetGeneratedOutputAsync()
         {
-            // IMPORTANT: Don't put more code here. We want this to return a cached task.
-            return State.GeneratedOutput.GetGeneratedOutputInitializationTask(Project, this);
+            var (output, _) = await State.GeneratedOutput.GetGeneratedOutput(ProjectInternal, this);
+            return output;
+        }
+
+        public override async Task<VersionStamp> GetGeneratedOutputVersionAsync()
+        {
+            var (_, version) = await State.GeneratedOutput.GetGeneratedOutput(ProjectInternal, this);
+            return version;
         }
 
         public override bool TryGetText(out SourceText result)
@@ -72,11 +80,23 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
         {
             if (State.GeneratedOutput.IsResultAvailable)
             {
-                result = State.GeneratedOutput.GetGeneratedOutputInitializationTask(Project, this).Result;
+                result = State.GeneratedOutput.GetGeneratedOutput(ProjectInternal, this).Result.output;
                 return true;
             }
 
             result = null;
+            return false;
+        }
+
+        public override bool TryGetGeneratedOutputVersionAsync(out VersionStamp result)
+        {
+            if (State.GeneratedOutput.IsResultAvailable)
+            {
+                result = State.GeneratedOutput.GetGeneratedOutput(ProjectInternal, this).Result.version;
+                return true;
+            }
+
+            result = default(VersionStamp);
             return false;
         }
     }

@@ -14,8 +14,13 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
     {
         private readonly object _lock;
 
+        // The base version is the version stamp of the last usable generated
+        // output. This allows us have a version that represents the last time the
+        // generated output was *reset* due to a configuration change.
+        private readonly VersionStamp _baseVersion;
+
         private DocumentGeneratedOutputTracker _older;
-        private Task<RazorCodeDocument> _task;
+        private Task<(RazorCodeDocument output, VersionStamp version)> _task;
         
         private IReadOnlyList<TagHelperDescriptor> _tagHelpers;
         private IReadOnlyList<ImportItem> _imports;
@@ -23,7 +28,7 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
         public DocumentGeneratedOutputTracker(DocumentGeneratedOutputTracker older)
         {
             _older = older;
-
+            _baseVersion = older?._baseVersion ?? VersionStamp.Create();
             _lock = new object();
         }
 
@@ -31,7 +36,7 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
 
         public DocumentGeneratedOutputTracker Older => _older;
 
-        public Task<RazorCodeDocument> GetGeneratedOutputInitializationTask(ProjectSnapshot project, DocumentSnapshot document)
+        public Task<(RazorCodeDocument output, VersionStamp version)> GetGeneratedOutput(DefaultProjectSnapshot project, DefaultDocumentSnapshot document)
         {
             if (project == null)
             {
@@ -49,7 +54,7 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
                 {
                     if (_task == null)
                     {
-                        _task = GetGeneratedOutputInitializationTaskCore(project, document);
+                        _task = GetGeneratedOutputCore(project, document);
                     }
                 }
             }
@@ -62,12 +67,11 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             return new DocumentGeneratedOutputTracker(this);
         }
 
-        private async Task<RazorCodeDocument> GetGeneratedOutputInitializationTaskCore(ProjectSnapshot project, DocumentSnapshot document)
+        private async Task<(RazorCodeDocument output, VersionStamp version)> GetGeneratedOutputCore(DefaultProjectSnapshot project, DefaultDocumentSnapshot document)
         {
+            var imports = await GetImportsAsync(project, document).ConfigureAwait(false);
             var tagHelpers = await project.GetTagHelpersAsync().ConfigureAwait(false);
-            var imports = await GetImportsAsync(project, document);
-
-            if (_older != null && _older.IsResultAvailable)
+            if (_older?._tagHelpers != null)
             {
                 var tagHelperDifference = new HashSet<TagHelperDescriptor>(TagHelperDescriptorComparer.Default);
                 tagHelperDifference.UnionWith(_older._tagHelpers);
@@ -82,53 +86,62 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
                     // We can use the cached result.
                     var result = _older._task.Result;
 
-                    // Drop reference so it can be GC'ed
-                    _older = null;
-
                     // Cache the tag helpers and imports so the next version can use them
                     _tagHelpers = tagHelpers;
                     _imports = imports;
+
+                    // Drop reference so it can be GC'ed
+                    _older = null;
 
                     return result;
                 }
             }
 
-            // Drop reference so it can be GC'ed
-            _older = null;
-
             // Cache the tag helpers and imports so the next version can use them
             _tagHelpers = tagHelpers;
             _imports = imports;
 
+            // Drop reference so it can be GC'ed
+            _older = null;
+
+            // Track the version of all of the inputs, so we can use it as the version of the generated code.
+            var version = _baseVersion;
             var importSources = new List<RazorSourceDocument>();
-            foreach (var item in imports)
+            foreach (var import in imports)
             {
-                var sourceDocument = await GetRazorSourceDocumentAsync(item.Import);
+                version = version.GetNewerVersion(import.Version);
+
+                var sourceDocument = await GetRazorSourceDocumentAsync(import.Import);
                 importSources.Add(sourceDocument);
             }
 
-            var documentSource = await GetRazorSourceDocumentAsync(document);
+            var tagHelperVersion = await project.WorkspaceProject.GetDependentVersionAsync().ConfigureAwait(false);
+            version = version.GetNewerVersion(tagHelperVersion);
+
+            var documentSource = await GetRazorSourceDocumentAsync(document).ConfigureAwait(false);
+            var documentVersion = await document.GetTextVersionAsync().ConfigureAwait(false);
+            version = version.GetNewerVersion(documentVersion);
 
             var projectEngine = project.GetProjectEngine();
 
             var codeDocument = projectEngine.ProcessDesignTime(documentSource, importSources, tagHelpers);
-            var csharpDocument = codeDocument.GetCSharpDocument();
-            if (document is DefaultDocumentSnapshot defaultDocument)
-            {
-                defaultDocument.State.HostDocument.GeneratedCodeContainer.SetOutput(csharpDocument, defaultDocument);
-            }
 
-            return codeDocument;
+            // The publisher is called **BEFORE** the output is available (before the task completes).
+            // This is for scenarios like omnisharp where we want to block completion of the codegen
+            // until we have pushed the generated output somewhere else.
+            var publisher = project.State.Services.GetRequiredService<GeneratedOutputPublisher>();
+            await publisher.PublishGeneratedOutputAsync(document, codeDocument, version);
+
+            return (codeDocument, version);
         }
 
         private async Task<RazorSourceDocument> GetRazorSourceDocumentAsync(DocumentSnapshot document)
         {
             var sourceText = await document.GetTextAsync();
-
             return sourceText.GetRazorSourceDocument(document.FilePath);
         }
 
-        private async Task<IReadOnlyList<ImportItem>> GetImportsAsync(ProjectSnapshot project, DocumentSnapshot document)
+        private async Task<IReadOnlyList<ImportItem>> GetImportsAsync(DefaultProjectSnapshot project, DefaultDocumentSnapshot document)
         {
             var imports = new List<ImportItem>();
             foreach (var snapshot in document.GetImports())
@@ -140,18 +153,18 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             return imports;
         }
 
-        private struct ImportItem : IEquatable<ImportItem>
+        private readonly struct ImportItem : IEquatable<ImportItem>
         {
             public ImportItem(string filePath, VersionStamp versionStamp, DocumentSnapshot import)
             {
                 FilePath = filePath;
-                VersionStamp = versionStamp;
+                Version = versionStamp;
                 Import = import;
             }
 
             public string FilePath { get; }
 
-            public VersionStamp VersionStamp { get; }
+            public VersionStamp Version { get; }
 
             public DocumentSnapshot Import { get; }
 
@@ -159,7 +172,7 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             {
                 return
                     FilePathComparer.Instance.Equals(FilePath, other.FilePath) &&
-                    VersionStamp == other.VersionStamp;
+                    Version == other.Version;
             }
 
             public override bool Equals(object obj)
@@ -171,7 +184,7 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             {
                 var hash = new HashCodeCombiner();
                 hash.Add(FilePath, FilePathComparer.Instance);
-                hash.Add(VersionStamp);
+                hash.Add(Version);
                 return hash;
             }
         }

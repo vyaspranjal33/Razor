@@ -61,10 +61,15 @@ namespace Microsoft.CodeAnalysis.Razor
 
             var workspaceServices = new List<IWorkspaceService>()
             {
+                // ProjectSnapshotManager needs to this work with imports and everything else
+                // needs this to generate code.
                 new TestProjectSnapshotProjectEngineFactory()
                 {
                     Configure = ConfigureProjectEngine,
                 },
+
+                // Documents need this to generate code.
+                new DefaultGeneratedOutputPublisher(),
             };
             ConfigureWorkspaceServices(workspaceServices);
 

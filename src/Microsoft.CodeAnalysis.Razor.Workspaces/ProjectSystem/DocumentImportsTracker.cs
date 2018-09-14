@@ -90,14 +90,12 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             private RazorProjectItem _importItem;
             private SourceText _sourceText;
             private VersionStamp _version;
-            private DocumentGeneratedOutputTracker _generatedOutput;
 
             public DefaultImportDocumentSnapshot(ProjectSnapshot project, RazorProjectItem item)
             {
                 _project = project;
                 _importItem = item;
                 _version = VersionStamp.Default;
-                _generatedOutput = new DocumentGeneratedOutputTracker(null);
             }
 
             public override string FilePath => null;
@@ -106,9 +104,11 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
 
             public override ProjectSnapshot Project => _project;
 
+            public override bool SupportsOutput => false;
+
             public override Task<RazorCodeDocument> GetGeneratedOutputAsync()
             {
-                return _generatedOutput.GetGeneratedOutputInitializationTask(_project, this);
+                throw new NotSupportedException();
             }
 
             public override IReadOnlyList<DocumentSnapshot> GetImports()
@@ -153,14 +153,17 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
 
             public override bool TryGetGeneratedOutput(out RazorCodeDocument result)
             {
-                if (_generatedOutput.IsResultAvailable)
-                {
-                    result = GetGeneratedOutputAsync().Result;
-                    return true;
-                }
+                throw new NotImplementedException();
+            }
 
-                result = null;
-                return false;
+            public override Task<VersionStamp> GetGeneratedOutputVersionAsync()
+            {
+                throw new NotImplementedException();
+            }
+
+            public override bool TryGetGeneratedOutputVersionAsync(out VersionStamp result)
+            {
+                throw new NotImplementedException();
             }
         }
     }

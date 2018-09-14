@@ -32,22 +32,33 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
 
         private DefaultDocumentSnapshot Document { get; }
 
+        private TestGeneratedOutputPublisher Publisher { get; } = new TestGeneratedOutputPublisher();
+
         protected override void ConfigureLanguageServices(List<ILanguageService> services)
         {
             services.Add(new TestTagHelperResolver());
         }
 
+        protected override void ConfigureWorkspaceServices(List<IWorkspaceService> services)
+        {
+            services.RemoveAll(s => s is GeneratedOutputPublisher);
+            services.Add(Publisher);
+        }
+
         [Fact]
-        public async Task GetGeneratedOutputAsync_SetsHostDocumentOutput()
+        public async Task GetGeneratedOutputAsync_PublishesOutput()
         {
             // Act
             await Document.GetGeneratedOutputAsync();
 
             // Assert
-            Assert.NotNull(HostDocument.GeneratedCodeContainer.Output);
-            Assert.Same(SourceText, HostDocument.GeneratedCodeContainer.Source);
+            var result = Assert.Single(Publisher.Output);
+            Assert.Same(result.document, Document);
         }
 
+        // This tests that the 'Version' of the generated output is computed based on
+        // the version of the inputs. We can't create a timestamp when we generate the code
+        // because operations might not happen in order.
         [Fact]
         public async Task GetGeneratedOutputAsync_SetsOutputWhenDocumentIsNewer()
         {
@@ -63,8 +74,10 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             await newDocument.GetGeneratedOutputAsync();
 
             // Assert
-            Assert.NotNull(HostDocument.GeneratedCodeContainer.Output);
-            Assert.Same(newSourceText, HostDocument.GeneratedCodeContainer.Source);
+            Assert.Collection(
+                Publisher.Output,
+                (o) => Assert.Same(Document, o.document),
+                (o) => Assert.Same(newDocument, o.document));
         }
 
         [Fact]
@@ -75,15 +88,19 @@ namespace Microsoft.CodeAnalysis.Razor.ProjectSystem
             var newDocumentState = Document.State.WithText(newSourceText, Version.GetNewerVersion());
             var newDocument = new DefaultDocumentSnapshot(Document.ProjectInternal, newDocumentState);
 
-            // Force the output to be the new output
-            await newDocument.GetGeneratedOutputAsync();
+            // Trigger code generation based on the new version - it's version should be
+            // based on the text.
+            var newerVersion = await newDocument.GetGeneratedOutputVersionAsync();
+            Assert.Equal(newerVersion, await newDocument.GetTextVersionAsync());
 
             // Act
-            await Document.GetGeneratedOutputAsync();
+            var olderVersion = await Document.GetGeneratedOutputVersionAsync();
 
             // Assert
-            Assert.NotNull(HostDocument.GeneratedCodeContainer.Output);
-            Assert.Same(newSourceText, HostDocument.GeneratedCodeContainer.Source);
+            Assert.Collection(
+                Publisher.Output,
+                (o) => Assert.Same(newDocument, o.document),
+                (o) => Assert.Same(Document, o.document));
         }
     }
 }

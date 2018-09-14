@@ -78,7 +78,8 @@ namespace Microsoft.CodeAnalysis.Razor
             // Now translate everything to be relative to the excerpt
             var offset = 0 - excerptSpan.Start;
             var excerptText = primaryText.GetSubText(excerptSpan);
-            excerptSpan = new TextSpan(excerptSpan.Start + offset, excerptSpan.Length);
+            excerptSpan = new TextSpan(0, excerptSpan.Length);
+            primarySpan = new TextSpan(primarySpan.Start + offset, primarySpan.Length);
 
             for (var i = 0; i < classifiedSpans.Count; i++)
             {
@@ -89,7 +90,7 @@ namespace Microsoft.CodeAnalysis.Razor
                 classifiedSpans[i] = new ClassifiedSpan(classifiedSpan.ClassificationType, updated);
             }
 
-            return new ExcerptResult(excerptText, excerptSpan, classifiedSpans.ToImmutable(), document, span);
+            return new ExcerptResult(excerptText, primarySpan, classifiedSpans.ToImmutable(), document, span);
         }
 
         private TextSpan ChooseExcerptSpan(SourceText primaryText, TextSpan primarySpan, ExcerptMode mode)
@@ -97,15 +98,17 @@ namespace Microsoft.CodeAnalysis.Razor
             var startLine = primaryText.Lines.GetLineFromPosition(primarySpan.Start);
             var endLine = primaryText.Lines.GetLineFromPosition(primarySpan.End);
 
-            // If we're showing a single line then this will do. Otherwise expand the range by 1 in
+            // If we're showing a single line then this will do. Otherwise expand the range by 3 in
             // each direction (if possible).
-            if (mode == ExcerptMode.Tooltip && startLine.LineNumber > 0)
+            if (mode == ExcerptMode.Tooltip)
             {
-                startLine = primaryText.Lines[startLine.LineNumber - 1];
+                var index = Math.Max(startLine.LineNumber - 3, 0);
+                startLine = primaryText.Lines[index];
             }
 
-            if (mode == ExcerptMode.Tooltip && endLine.LineNumber < primaryText.Lines.Count - 1)
+            if (mode == ExcerptMode.Tooltip)
             {
+                var index = Math.Min(startLine.LineNumber + 3, primaryText.Lines.Count - 1);
                 endLine = primaryText.Lines[endLine.LineNumber + 1];
             }
 
