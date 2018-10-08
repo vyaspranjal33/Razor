@@ -8,9 +8,9 @@
     <MicrosoftAspNetCoreBenchmarkRunnerSourcesPackageVersion>3.0.0-alpha1-10549</MicrosoftAspNetCoreBenchmarkRunnerSourcesPackageVersion>
     <MicrosoftAspNetCoreHtmlAbstractionsPackageVersion>3.0.0-alpha1-10549</MicrosoftAspNetCoreHtmlAbstractionsPackageVersion>
     <MicrosoftAspNetCoreTestingPackageVersion>3.0.0-alpha1-10549</MicrosoftAspNetCoreTestingPackageVersion>
-    <MicrosoftBuildFrameworkPackageVersion>15.6.82</MicrosoftBuildFrameworkPackageVersion>
-    <MicrosoftBuildPackageVersion>15.6.82</MicrosoftBuildPackageVersion>
-    <MicrosoftBuildUtilitiesCorePackageVersion>15.6.82</MicrosoftBuildUtilitiesCorePackageVersion>
+    <MicrosoftBuildFrameworkPackageVersion>15.8.166</MicrosoftBuildFrameworkPackageVersion>
+    <MicrosoftBuildPackageVersion>15.8.166</MicrosoftBuildPackageVersion>
+    <MicrosoftBuildUtilitiesCorePackageVersion>15.8.166</MicrosoftBuildUtilitiesCorePackageVersion>
     <MicrosoftCodeAnalysisCommonPackageVersion>2.8.0</MicrosoftCodeAnalysisCommonPackageVersion>
     <MicrosoftCodeAnalysisCSharpPackageVersion>2.8.0</MicrosoftCodeAnalysisCSharpPackageVersion>
     <MicrosoftExtensionsCommandLineUtilsSourcesPackageVersion>3.0.0-alpha1-10549</MicrosoftExtensionsCommandLineUtilsSourcesPackageVersion>
@@ -28,9 +28,10 @@
     <MicrosoftVisualStudioLanguageIntellisensePackageVersion>15.6.161-preview</MicrosoftVisualStudioLanguageIntellisensePackageVersion>
     <MicrosoftVisualStudioLanguagePackageVersion>15.8.519</MicrosoftVisualStudioLanguagePackageVersion>
     <MicrosoftVisualStudioOLEInteropPackageVersion>7.10.6070</MicrosoftVisualStudioOLEInteropPackageVersion>
-    <MicrosoftVisualStudioProjectSystemAnalyzersPackageVersion>15.3.224</MicrosoftVisualStudioProjectSystemAnalyzersPackageVersion>
+    <MicrosoftVisualStudioProjectSystemPackageVersion>16.0.201-pre-g7d366164d0</MicrosoftVisualStudioProjectSystemPackageVersion>
+    <MicrosoftVisualStudioProjectSystemAnalyzersPackageVersion>16.0.201-pre-g7d366164d0</MicrosoftVisualStudioProjectSystemAnalyzersPackageVersion>
     <MicrosoftVisualStudioProjectSystemManagedVSPackageVersion>2.0.6142705</MicrosoftVisualStudioProjectSystemManagedVSPackageVersion>
-    <MicrosoftVisualStudioProjectSystemSDKPackageVersion>15.3.224</MicrosoftVisualStudioProjectSystemSDKPackageVersion>
+    <MicrosoftVisualStudioProjectSystemSDKPackageVersion>16.0.201-pre-g7d366164d0</MicrosoftVisualStudioProjectSystemSDKPackageVersion>
     <MicrosoftVisualStudioShell150PackageVersion>15.0.26606</MicrosoftVisualStudioShell150PackageVersion>
     <MicrosoftVisualStudioShellInterop100PackageVersion>10.0.30319</MicrosoftVisualStudioShellInterop100PackageVersion>
     <MicrosoftVisualStudioShellInterop110PackageVersion>11.0.61030</MicrosoftVisualStudioShellInterop110PackageVersion>

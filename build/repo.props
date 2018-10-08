@@ -22,6 +22,9 @@
     <!-- These properties are use by the automation that updates dependencies.props -->
     <LineupPackageId>Internal.AspNetCore.Universe.Lineup</LineupPackageId>
     <LineupPackageRestoreSource>https://dotnet.myget.org/F/aspnetcore-dev/api/v3/index.json</LineupPackageRestoreSource>
+
+    <!-- Let us hardcode versions -->
+    <DisablePackageReferenceRestrictions>true</DisablePackageReferenceRestrictions>
   </PropertyGroup>
 
   <ItemGroup>
