@@ -18,7 +18,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
             Assert.NotNull(output);
         }
 
-        [Fact]
+        [Fact(Skip = "Uses old tree")]
         public void ParseMethodCallsParseDocumentOnMarkupParserAndReturnsResults()
         {
             // Arrange
@@ -40,7 +40,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                     factory.Markup(" baz")));
         }
 
-        [Fact]
+        [Fact(Skip = "Uses old tree")]
         public void ParseMethodUsesProvidedParserListenerIfSpecified()
         {
             // Arrange
@@ -62,7 +62,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                     factory.Markup(" baz")));
         }
 
-        [Fact]
+        [Fact(Skip = "Uses old tree")]
         public void Parse_SyntaxTreeSpansAreLinked()
         {
             // Arrange

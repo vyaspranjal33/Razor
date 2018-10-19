@@ -1234,6 +1234,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
                     var directiveBody = SyntaxFactory.RazorDirectiveBody(keywordBlock, directiveCodeBlock);
                     var directive = SyntaxFactory.RazorDirective(transition, directiveBody);
                     directive = (RazorDirectiveSyntax)directive.SetDiagnostics(directiveErrorSink.Errors.ToArray());
+                    directive = directive.WithDirectiveDescriptor(descriptor);
                     return directive;
                 }
             }
@@ -1846,7 +1847,7 @@ namespace Microsoft.AspNetCore.Razor.Language.Legacy
 
                 SpanContext.EditHandler.AcceptedCharacters = AcceptedCharactersInternal.AnyExceptNewline;
                 SpanContext.ChunkGenerator = new AddImportChunkGenerator(new LocationTagged<string>(
-                    string.Concat(TokenBuilder.ToList().Nodes.Select(s => s.Content)),
+                    string.Concat(TokenBuilder.ToList().Nodes.Skip(1).Select(s => s.Content)),
                     start));
 
                 // Optional ";"

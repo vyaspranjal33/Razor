@@ -4,13 +4,14 @@
 using System;
 using System.Linq;
 using Microsoft.AspNetCore.Razor.Language.Legacy;
+using Microsoft.AspNetCore.Razor.Language.Syntax;
 using Xunit;
 
 namespace Microsoft.AspNetCore.Razor.Language
 {
     public class HtmlNodeOptimizationPassTest
     {
-        [Fact]
+        [Fact(Skip = "ConditionalAttributeCollapser doesn't exist in the new tree")]
         public void Execute_CollapsesConditionalAttributes()
         {
             // Assert
@@ -37,7 +38,7 @@ namespace Microsoft.AspNetCore.Razor.Language
             // Assert
             var content = Environment.NewLine + "    @true";
             var sourceDocument = TestRazorSourceDocument.Create(content);
-            var originalTree = RazorSyntaxTree.Parse(sourceDocument);
+            var originalTree = RazorSyntaxTree.Parse(sourceDocument, legacy: false);
             var pass = new HtmlNodeOptimizationPass();
             var codeDocument = RazorCodeDocument.Create(sourceDocument);
 
@@ -45,9 +46,11 @@ namespace Microsoft.AspNetCore.Razor.Language
             var outputTree = pass.Execute(codeDocument, originalTree);
 
             // Assert
-            Assert.Equal(4, outputTree.LegacyRoot.Children.Count);
-            var whitespace = Assert.IsType<Span>(outputTree.LegacyRoot.Children[1]);
-            Assert.True(whitespace.Content.All(char.IsWhiteSpace));
+            var document = Assert.IsType<RazorDocumentSyntax>(outputTree.Root);
+            var block = Assert.IsType<MarkupBlockSyntax>(document.Document);
+            Assert.Equal(4, block.Children.Count);
+            var whitespace = Assert.IsType<MarkupTextLiteralSyntax>(block.Children[1]);
+            Assert.True(whitespace.GetContent().All(char.IsWhiteSpace));
         }
     }
 }
