@@ -251,6 +251,20 @@ namespace Microsoft.AspNetCore.Razor.Language
                     _builder.Push(directiveNode);
                 }
 
+                Visit(node.Body);
+
+                if (descriptor != null)
+                {
+                    _builder.Pop();
+                }
+
+                return node;
+            }
+
+            public override SyntaxNode VisitRazorDirectiveBody(RazorDirectiveBodySyntax node)
+            {
+                IntermediateNode directiveNode;
+                var visited = false;
                 var descendantNodes = node.DescendantNodes();
                 foreach (var child in descendantNodes)
                 {
@@ -270,12 +284,14 @@ namespace Microsoft.AspNetCore.Razor.Language
                                 DirectiveToken = tokenChunkGenerator.Descriptor,
                                 Source = BuildSourceSpanFromNode(child),
                             });
+                            visited = true;
                         }
                         else if (context.ChunkGenerator is AddImportChunkGenerator importChunkGenerator)
                         {
                             var namespaceImport = importChunkGenerator.Namespace.Trim();
                             var namespaceSpan = BuildSourceSpanFromNode(child);
                             _usings.Add(new UsingReference(namespaceImport, namespaceSpan));
+                            visited = true;
                         }
                         else if (context.ChunkGenerator is AddTagHelperChunkGenerator addTagHelperChunkGenerator)
                         {
@@ -313,6 +329,7 @@ namespace Microsoft.AspNetCore.Razor.Language
                             });
 
                             _builder.Pop();
+                            visited = true;
                         }
                         else if (context.ChunkGenerator is RemoveTagHelperChunkGenerator removeTagHelperChunkGenerator)
                         {
@@ -350,6 +367,7 @@ namespace Microsoft.AspNetCore.Razor.Language
                             });
 
                             _builder.Pop();
+                            visited = true;
                         }
                         else if (context.ChunkGenerator is TagHelperPrefixDirectiveChunkGenerator tagHelperPrefixChunkGenerator)
                         {
@@ -387,21 +405,22 @@ namespace Microsoft.AspNetCore.Razor.Language
                             });
 
                             _builder.Pop();
+                            visited = true;
                         }
                         else
                         {
-                            Visit(statementLiteral);
+                            //Visit(statementLiteral);
                         }
                     }
                     else if (child is MarkupTextLiteralSyntax textLiteral)
                     {
-                        Visit(textLiteral);
+                        //Visit(textLiteral);
                     }
                 }
 
-                if (descriptor != null)
+                if (!visited)
                 {
-                    _builder.Pop();
+                    return base.VisitRazorDirectiveBody(node);
                 }
 
                 return node;
@@ -449,29 +468,47 @@ namespace Microsoft.AspNetCore.Razor.Language
             {
                 var prefixTokens = MergeLiterals(
                     node.NamePrefix?.LiteralTokens,
-                    node.Name?.LiteralTokens,
+                    node.Name.LiteralTokens,
                     node.NameSuffix?.LiteralTokens,
                     node.EqualsToken == null ? new SyntaxList<SyntaxToken>() : new SyntaxList<SyntaxToken>(node.EqualsToken),
                     node.ValuePrefix?.LiteralTokens);
-                var prefix = SyntaxFactory.MarkupTextLiteral(prefixTokens);
+                var prefix = SyntaxFactory.MarkupTextLiteral(prefixTokens).Green.CreateRed(node, node.NamePrefix?.Position ?? node.Name.Position);
 
-                _builder.Push(new HtmlAttributeIntermediateNode()
+                var name = node.Name.GetContent();
+                if (name.StartsWith("data-", StringComparison.OrdinalIgnoreCase) &&
+                    !_featureFlags.EXPERIMENTAL_AllowConditionalDataDashAttributes)
                 {
-                    AttributeName = node.Name.GetContent(),
-                    Prefix = prefix.GetContent(),
-                    Suffix = node.ValueSuffix?.GetContent(),
-                    Source = BuildSourceSpanFromNode(node),
-                });
+                    Visit(prefix);
+                    Visit(node.Value);
+                    Visit(node.ValueSuffix);
+                }
+                else
+                {
+                    _builder.Push(new HtmlAttributeIntermediateNode()
+                    {
+                        AttributeName = node.Name.GetContent(),
+                        Prefix = prefix.GetContent(),
+                        Suffix = node.ValueSuffix?.GetContent(),
+                        Source = BuildSourceSpanFromNode(node),
+                    });
 
-                Visit(node.Value);
+                    VisitAttributeValue(node.Value);
 
-                _builder.Pop();
+                    _builder.Pop();
+                }
 
                 return node;
             }
 
             public override SyntaxNode VisitMarkupMinimizedAttributeBlock(MarkupMinimizedAttributeBlockSyntax node)
             {
+                var name = node.Name.GetContent();
+                if (name.StartsWith("data-", StringComparison.OrdinalIgnoreCase) &&
+                    !_featureFlags.EXPERIMENTAL_AllowConditionalDataDashAttributes)
+                {
+                    return base.VisitMarkupMinimizedAttributeBlock(node);
+                }
+
                 _builder.Push(new HtmlAttributeIntermediateNode()
                 {
                     AttributeName = node.Name.GetContent(),
@@ -801,12 +838,148 @@ namespace Microsoft.AspNetCore.Razor.Language
                 return node;
             }
 
+            public override SyntaxNode VisitMarkupTagHelperStartTag(MarkupTagHelperStartTagSyntax node)
+            {
+                foreach (var child in node.Children)
+                {
+                    if (child is MarkupTagHelperAttributeSyntax || child is MarkupMinimizedTagHelperAttributeSyntax)
+                    {
+                        Visit(child);
+                    }
+                }
+
+                return node;
+            }
+
+            public override SyntaxNode VisitMarkupMinimizedTagHelperAttribute(MarkupMinimizedTagHelperAttributeSyntax node)
+            {
+                if (!_featureFlags.AllowMinimizedBooleanTagHelperAttributes)
+                {
+                    // Minimized attributes are not valid for non-boolean bound attributes. TagHelperBlockRewriter
+                    // has already logged an error if it was a non-boolean bound attribute; so we can skip.
+                    return node;
+                }
+
+                var element = node.FirstAncestorOrSelf<MarkupTagHelperElementSyntax>();
+                var descriptors = element.TagHelperInfo.BindingResult.Descriptors;
+                var renderedBoundAttributeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var attributeName = node.Name.GetContent();
+                var associatedDescriptors = descriptors.Where(descriptor =>
+                    descriptor.BoundAttributes.Any(attributeDescriptor => TagHelperMatchingConventions.CanSatisfyBoundAttribute(attributeName, attributeDescriptor)));
+
+                if (associatedDescriptors.Any() && renderedBoundAttributeNames.Add(attributeName))
+                {
+                    foreach (var associatedDescriptor in associatedDescriptors)
+                    {
+                        var associatedAttributeDescriptor = associatedDescriptor.BoundAttributes.First(a =>
+                        {
+                            return TagHelperMatchingConventions.CanSatisfyBoundAttribute(attributeName, a);
+                        });
+
+                        var expectsBooleanValue = associatedAttributeDescriptor.ExpectsBooleanValue(attributeName);
+
+                        if (!expectsBooleanValue)
+                        {
+                            // We do not allow minimized non-boolean bound attributes.
+                            return node;
+                        }
+
+                        var setTagHelperProperty = new TagHelperPropertyIntermediateNode()
+                        {
+                            AttributeName = attributeName,
+                            BoundAttribute = associatedAttributeDescriptor,
+                            TagHelper = associatedDescriptor,
+                            AttributeStructure = node.TagHelperAttributeInfo.AttributeStructure,
+                            Source = null,
+                            IsIndexerNameMatch = TagHelperMatchingConventions.SatisfiesBoundAttributeIndexer(attributeName, associatedAttributeDescriptor),
+                        };
+
+                        _builder.Add(setTagHelperProperty);
+                    }
+                }
+                else
+                {
+                    var addHtmlAttribute = new TagHelperHtmlAttributeIntermediateNode()
+                    {
+                        AttributeName = attributeName,
+                        AttributeStructure = node.TagHelperAttributeInfo.AttributeStructure
+                    };
+
+                    _builder.Add(addHtmlAttribute);
+                }
+
+                return node;
+            }
+
             public override SyntaxNode VisitMarkupTagHelperAttribute(MarkupTagHelperAttributeSyntax node)
             {
                 var element = node.FirstAncestorOrSelf<MarkupTagHelperElementSyntax>();
                 var descriptors = element.TagHelperInfo.BindingResult.Descriptors;
+                var renderedBoundAttributeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var attributeName = node.Name.GetContent();
+                var attributeValueNode = node.Value;
+                var associatedDescriptors = descriptors.Where(descriptor =>
+                    descriptor.BoundAttributes.Any(attributeDescriptor => TagHelperMatchingConventions.CanSatisfyBoundAttribute(attributeName, attributeDescriptor)));
 
-                return base.VisitMarkupTagHelperAttribute(node);
+                if (associatedDescriptors.Any() && renderedBoundAttributeNames.Add(attributeName))
+                {
+                    foreach (var associatedDescriptor in associatedDescriptors)
+                    {
+                        var associatedAttributeDescriptor = associatedDescriptor.BoundAttributes.First(a =>
+                        {
+                            return TagHelperMatchingConventions.CanSatisfyBoundAttribute(attributeName, a);
+                        });
+
+                        var setTagHelperProperty = new TagHelperPropertyIntermediateNode()
+                        {
+                            AttributeName = attributeName,
+                            BoundAttribute = associatedAttributeDescriptor,
+                            TagHelper = associatedDescriptor,
+                            AttributeStructure = node.TagHelperAttributeInfo.AttributeStructure,
+                            Source = BuildSourceSpanFromNode(attributeValueNode),
+                            IsIndexerNameMatch = TagHelperMatchingConventions.SatisfiesBoundAttributeIndexer(attributeName, associatedAttributeDescriptor),
+                        };
+
+                        _builder.Push(setTagHelperProperty);
+                        VisitAttributeValue(attributeValueNode);
+                        _builder.Pop();
+                    }
+                }
+                else
+                {
+                    var addHtmlAttribute = new TagHelperHtmlAttributeIntermediateNode()
+                    {
+                        AttributeName = attributeName,
+                        AttributeStructure = node.TagHelperAttributeInfo.AttributeStructure
+                    };
+
+                    _builder.Push(addHtmlAttribute);
+                    VisitAttributeValue(attributeValueNode);
+                    _builder.Pop();
+                }
+
+                return node;
+            }
+
+            private void VisitAttributeValue(SyntaxNode node)
+            {
+                if (node == null)
+                {
+                    return;
+                }
+
+                var attributeValueNodes = node.ChildNodes().Where(c => c is MarkupLiteralAttributeValueSyntax || c is MarkupDynamicAttributeValueSyntax).ToArray();
+                if (attributeValueNodes.Length == 1 && attributeValueNodes[0] is MarkupLiteralAttributeValueSyntax literalValue)
+                {
+                    var valueTokens = MergeLiterals(literalValue.Prefix?.LiteralTokens, literalValue.Value?.LiteralTokens);
+                    var rewritten = literalValue.Prefix?.Update(valueTokens) ?? literalValue.Value?.Update(valueTokens);
+                    rewritten = (MarkupTextLiteralSyntax)rewritten?.Green.CreateRed(node, literalValue.Prefix?.Position ?? literalValue.Value?.Position ?? 0);
+                    Visit(rewritten);
+                }
+                else
+                {
+                    Visit(node);
+                }
             }
 
             private void Combine(HtmlContentIntermediateNode node, SyntaxNode item)
